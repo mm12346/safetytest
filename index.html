@@ -40,10 +40,7 @@
                 <main>
                     <!-- Voting Section -->
                     <div id="vote-view">
-                         <div>
-                            <label for="voter-id" class="block text-sm font-medium text-gray-700 mb-2">รหัสผู้โหวต หรือ ชื่อของคุณ <span class="text-red-500">*</span></label>
-                            <input type="text" id="voter-id" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition" placeholder="กรุณากรอกชื่อของคุณก่อนเลือกผู้สมัคร" required>
-                        </div>
+                        <!-- Removed voter-id input field -->
                         <div id="candidate-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-6"></div>
                         <div id="status-message-container" class="h-16 mt-6"></div>
                     </div>
@@ -74,11 +71,16 @@
                                 </div>
                             </div>
                             <div class="overflow-x-auto bg-gray-50 p-2 rounded-lg border">
-                                <table class="min-w-full text-left"><thead class="bg-gray-200"><tr>
-                                    <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Timestamp</th>
-                                    <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Voter ID</th>
-                                    <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Choice</th>
-                                </tr></thead><tbody id="results-table-body"></tbody></table>
+                                <table class="min-w-full text-left">
+                                    <thead class="bg-gray-200">
+                                        <tr>
+                                            <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Timestamp</th>
+                                            <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Browser ID</th> <!-- Changed from Voter ID -->
+                                            <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Choice</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="results-table-body"></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -112,48 +114,50 @@
 
     <script>
         const APP_CONFIG = {
-        APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwj2a_1R9ehhAVGikPFOo5ga1Rg0d2hViKPSB0whWtUG_ZD6d3Oanbnamoyr28yAt2H3g/exec',
-        ADMIN_PASSWORD: '5867050201',
-        sheetId: '1Rc3z2Gizy5CgUuihQmdhQ6IE-y0aUgDglDd_lryuHWo' // <<--- ใส่ Google Sheet ID ตรงนี้
-    };
-    let isAdminLoggedIn = false;
+            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwj2a_1R9ehhAVGikPFOo5ga1Rg0d2hViKPSB0whWtUG_ZD6d3Oanbnamoyr28yAt2H3g/exec',
+            ADMIN_PASSWORD: '5867050201',
+            sheetId: '1Rc3z2Gizy5CgUuihQmdhQ6IE-y0aUgDglDd_lryuHWo' // <<--- ใส่ Google Sheet ID ตรงนี้
+        };
+        let isAdminLoggedIn = false;
+        const LOCAL_STORAGE_KEY_VOTED = 'hasVoted'; // Key to store voting status
+        const LOCAL_STORAGE_KEY_BROWSER_ID = 'browserId'; // Key to store browser ID
 
-    // DOM Elements
-    const { voteView, adminView, adminLoginView, adminResultsView, navVote, navAdmin, loginForm, adminPasswordInput, loginErrorMessage, voterIdInput, candidateCardsContainer, statusContainer, resultsTableBody, refreshBtn, settingsBtn, settingsModal, cancelSettingsBtn, saveSettingsBtn, sheetIdInput, settingsStatus } = (() => ({
-        voteView: document.getElementById('vote-view'),
-        adminView: document.getElementById('admin-view'),
-        adminLoginView: document.getElementById('admin-login-view'),
-        adminResultsView: document.getElementById('admin-results-view'),
-        navVote: document.getElementById('nav-vote'),
-        navAdmin: document.getElementById('nav-admin'),
-        loginForm: document.getElementById('login-form'),
-        adminPasswordInput: document.getElementById('admin-password'),
-        loginErrorMessage: document.getElementById('login-error-message'),
-        voterIdInput: document.getElementById('voter-id'),
-        candidateCardsContainer: document.getElementById('candidate-cards'),
-        statusContainer: document.getElementById('status-message-container'),
-        resultsTableBody: document.getElementById('results-table-body'),
-        refreshBtn: document.getElementById('refresh-btn'),
-        settingsBtn: document.getElementById('settings-btn'),
-        settingsModal: document.getElementById('settings-modal'),
-        cancelSettingsBtn: document.getElementById('cancel-settings-btn'),
-        saveSettingsBtn: document.getElementById('save-settings-btn'),
-        sheetIdInput: document.getElementById('sheet-id-input'),
-        settingsStatus: document.getElementById('settings-status'),
-    }))();
+        // DOM Elements
+        const { voteView, adminView, adminLoginView, adminResultsView, navVote, navAdmin, loginForm, adminPasswordInput, loginErrorMessage, candidateCardsContainer, statusContainer, resultsTableBody, refreshBtn, settingsBtn, settingsModal, cancelSettingsBtn, saveSettingsBtn, sheetIdInput, settingsStatus } = (() => ({
+            voteView: document.getElementById('vote-view'),
+            adminView: document.getElementById('admin-view'),
+            adminLoginView: document.getElementById('admin-login-view'),
+            adminResultsView: document.getElementById('admin-results-view'),
+            navVote: document.getElementById('nav-vote'),
+            navAdmin: document.getElementById('nav-admin'),
+            loginForm: document.getElementById('login-form'),
+            adminPasswordInput: document.getElementById('admin-password'),
+            loginErrorMessage: document.getElementById('login-error-message'),
+            // voterIdInput: document.getElementById('voter-id'), // Removed
+            candidateCardsContainer: document.getElementById('candidate-cards'),
+            statusContainer: document.getElementById('status-message-container'),
+            resultsTableBody: document.getElementById('results-table-body'),
+            refreshBtn: document.getElementById('refresh-btn'),
+            settingsBtn: document.getElementById('settings-btn'),
+            settingsModal: document.getElementById('settings-modal'),
+            cancelSettingsBtn: document.getElementById('cancel-settings-btn'),
+            saveSettingsBtn: document.getElementById('save-settings-btn'),
+            sheetIdInput: document.getElementById('sheet-id-input'),
+            settingsStatus: document.getElementById('settings-status'),
+        }))();
 
-    // ปิดการแก้ไข Sheet ID จาก UI และ LocalStorage
-    function loadConfig() {
-        // ไม่โหลดจาก localStorage อีกต่อไป
-    }
-    function saveConfig() {
-        // ไม่อนุญาตให้เปลี่ยน sheetId
-        settingsStatus.innerHTML = `<div class="p-2 bg-red-100 text-red-700 rounded-lg text-sm">ไม่สามารถเปลี่ยน Sheet ID ได้</div>`;
-        setTimeout(() => {
-            settingsModal.classList.add('hidden');
-            settingsStatus.innerHTML = '';
-        }, 1500);
-    }
+        // ปิดการแก้ไข Sheet ID จาก UI และ LocalStorage
+        function loadConfig() {
+            // ไม่โหลดจาก localStorage อีกต่อไป
+        }
+        function saveConfig() {
+            // ไม่อนุญาตให้เปลี่ยน sheetId
+            settingsStatus.innerHTML = `<div class="p-2 bg-red-100 text-red-700 rounded-lg text-sm">ไม่สามารถเปลี่ยน Sheet ID ได้</div>`;
+            setTimeout(() => {
+                settingsModal.classList.add('hidden');
+                settingsStatus.innerHTML = '';
+            }, 1500);
+        }
 
         function buildUrl(action) {
             let url = `${APP_CONFIG.APPS_SCRIPT_URL}?action=${action}`;
@@ -170,6 +174,7 @@
                 if (!response.ok) throw new Error('Network response was not ok');
                 const candidates = await response.json();
                 renderCandidateCards(candidates);
+                checkIfAlreadyVoted(); // Check voting status after candidates are loaded
             } catch (error) {
                 console.error('Failed to fetch candidates:', error);
                 candidateCardsContainer.innerHTML = `<p class="text-center text-red-500 col-span-full">เกิดข้อผิดพลาดในการโหลดข้อมูลผู้สมัคร: ${error.message}</p>`;
@@ -190,23 +195,65 @@
             }
         }
 
-        async function handleVoteSubmit(choice, buttonElement) {
-            const voterId = voterIdInput.value.trim();
-            if (!voterId) {
-                showStatusMessage('กรุณากรอกรหัสผู้โหวต หรือชื่อของคุณก่อน', true);
-                voterIdInput.focus(); return;
+        function getBrowserId() {
+            let browserId = localStorage.getItem(LOCAL_STORAGE_KEY_BROWSER_ID);
+            if (!browserId) {
+                browserId = crypto.randomUUID(); // Generate a unique ID for the browser
+                localStorage.setItem(LOCAL_STORAGE_KEY_BROWSER_ID, browserId);
             }
+            return browserId;
+        }
+
+        function checkIfAlreadyVoted() {
+            const hasVoted = localStorage.getItem(LOCAL_STORAGE_KEY_VOTED);
+            if (hasVoted) {
+                showStatusMessage('คุณได้ทำการโหวตไปแล้ว 1 ครั้ง และไม่สามารถโหวตซ้ำได้', true);
+                disableAllVoteButtons();
+            }
+        }
+
+        function disableAllVoteButtons() {
+            document.querySelectorAll('.vote-btn').forEach(button => {
+                button.disabled = true;
+                button.classList.add('bg-gray-400', 'hover:bg-gray-400');
+                button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            });
+        }
+
+        async function handleVoteSubmit(choice, buttonElement) {
+            const hasVoted = localStorage.getItem(LOCAL_STORAGE_KEY_VOTED);
+            if (hasVoted) {
+                showStatusMessage('คุณได้ทำการโหวตไปแล้ว 1 ครั้ง และไม่สามารถโหวตซ้ำได้', true);
+                return;
+            }
+
+            const browserId = getBrowserId(); // Get or generate browser ID
+
             const originalButtonText = buttonElement.innerHTML;
             buttonElement.disabled = true;
             buttonElement.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่ง...`;
-            const data = { voterId, choice, sheetId: APP_CONFIG.sheetId };
+
+            const data = { browserId, choice, sheetId: APP_CONFIG.sheetId }; // Send browserId instead of voterId
             try {
-                await fetch(APP_CONFIG.APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                // Changed mode back to 'no-cors' to avoid CORS issues that cause 'Failed to fetch'
+                await fetch(APP_CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                // In 'no-cors' mode, the response is opaque. We cannot read response.ok or response.json().
+                // So, we assume success if the fetch operation itself does not throw an error.
+                // The Apps Script will handle duplicate vote logic on the server side.
+                localStorage.setItem(LOCAL_STORAGE_KEY_VOTED, 'true'); // Mark as voted in client-side storage
                 showStatusMessage(`โหวตให้ "${choice}" สำเร็จ!`, false);
-                voterIdInput.value = '';
+                disableAllVoteButtons(); // Disable all buttons after successful vote
+
             } catch (error) {
                 console.error('Error submitting vote:', error);
-                showStatusMessage('เกิดข้อผิดพลาด: ไม่สามารถส่งคะแนนได้', true);
+                // General error message as specific error details from Apps Script are not readable in 'no-cors' mode.
+                showStatusMessage('เกิดข้อผิดพลาด: ไม่สามารถส่งคะแนนได้ (อาจเกิดจากปัญหาเครือข่าย หรือการตั้งค่า Apps Script)', true);
             } finally {
                 buttonElement.disabled = false;
                 buttonElement.innerHTML = originalButtonText;
@@ -226,7 +273,7 @@
                 adminPasswordInput.value = '';
             }
         }
-        
+
         function switchTabView(viewToShow) {
             voteView.classList.toggle('hidden', viewToShow !== 'vote');
             adminView.classList.toggle('hidden', viewToShow !== 'admin');
@@ -242,32 +289,32 @@
             statusContainer.innerHTML = `<div class="status-message p-3 rounded-lg text-center font-medium ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${message}</div>`;
         }
         function renderCandidateCards(candidates = []) {
-    if (!candidates || candidates.length === 0) {
-         candidateCardsContainer.innerHTML = `<p class="text-center text-red-500 col-span-full">ไม่พบข้อมูลผู้สมัคร</p>`;
-         return;
-    }
-    candidateCardsContainer.innerHTML = candidates.map(c => {
-        // ถ้าเป็น Google Drive link ให้แปลงเป็น direct link
-        let imgSrc = c.image;
-        const driveMatch = imgSrc && imgSrc.match(/drive\.google\.com\/file\/d\/([^/]+)\//);
-        if (driveMatch) {
-            imgSrc = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+            if (!candidates || candidates.length === 0) {
+                candidateCardsContainer.innerHTML = `<p class="text-center text-red-500 col-span-full">ไม่พบข้อมูลผู้สมัคร</p>`;
+                return;
+            }
+            candidateCardsContainer.innerHTML = candidates.map(c => {
+                // ถ้าเป็น Google Drive link ให้แปลงเป็น direct link
+                let imgSrc = c.image;
+                const driveMatch = imgSrc && imgSrc.match(/drive\.google\.com\/file\/d\/([^/]+)\//);
+                if (driveMatch) {
+                    imgSrc = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+                }
+                // ถ้าไม่มีรูปหรือแปลงไม่ได้ ให้ใช้ placeholder
+                if (!imgSrc || imgSrc.trim() === "") {
+                    imgSrc = 'https://placehold.co/400x400/cccccc/ffffff?text=No+Image';
+                }
+                return `
+                    <div class="candidate-card bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden text-center">
+                        <img src="${imgSrc}" alt="${c.name}" class="w-full h-48 object-cover bg-gray-200" onerror="this.onerror=null;this.src='https://placehold.co/400x400/cccccc/ffffff?text=Image+Error';">
+                        <div class="p-4">
+                            <h3 class="text-xl font-bold text-gray-800">${c.name}</h3>
+                            ${c.number ? `<p class="text-2xl font-bold text-blue-600 my-2">เบอร์ ${c.number}</p>` : '<p class="text-lg text-gray-500 my-2">-</p>'}
+                            <button data-choice="${c.name}" class="vote-btn w-full mt-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i class="fas fa-check-to-slot mr-2"></i>เลือกคนนี้</button>
+                        </div>
+                    </div>`;
+            }).join('');
         }
-        // ถ้าไม่มีรูปหรือแปลงไม่ได้ ให้ใช้ placeholder
-        if (!imgSrc || imgSrc.trim() === "") {
-            imgSrc = 'https://placehold.co/400x400/cccccc/ffffff?text=No+Image';
-        }
-        return `
-            <div class="candidate-card bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden text-center">
-                <img src="${imgSrc}" alt="${c.name}" class="w-full h-48 object-cover bg-gray-200" onerror="this.onerror=null;this.src='https://placehold.co/400x400/cccccc/ffffff?text=Image+Error';">
-                <div class="p-4">
-                    <h3 class="text-xl font-bold text-gray-800">${c.name}</h3>
-                    ${c.number ? `<p class="text-2xl font-bold text-blue-600 my-2">เบอร์ ${c.number}</p>` : '<p class="text-lg text-gray-500 my-2">-</p>'}
-                    <button data-choice="${c.name}" class="vote-btn w-full mt-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i class="fas fa-check-to-slot mr-2"></i>เลือกคนนี้</button>
-                </div>
-            </div>`;
-    }).join('');
-}
         function renderResults(results) {
             if (results.length === 0) {
                 resultsTableBody.innerHTML = '<tr><td colspan="3" class="text-center p-8 text-gray-500">ยังไม่มีข้อมูลการโหวต</td></tr>';
@@ -275,7 +322,7 @@
                 resultsTableBody.innerHTML = results.map(row => `
                     <tr class="border-b border-gray-200 hover:bg-gray-100">
                         <td class="p-3 text-gray-700 text-sm">${row.Timestamp || 'N/A'}</td>
-                        <td class="p-3 text-gray-700 font-medium">${row.VoterID || 'N/A'}</td>
+                        <td class="p-3 text-gray-700 font-medium">${row.BrowserID || 'N/A'}</td> <!-- Changed from VoterID -->
                         <td class="p-3 text-gray-700">${row.Choice || 'N/A'}</td>
                     </tr>`).join('');
             }
@@ -298,50 +345,6 @@
         cancelSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
         saveSettingsBtn.addEventListener('click', saveConfig);
         settingsModal.addEventListener('click', e => e.target === settingsModal && settingsModal.classList.add('hidden'));
-
-        async function handleVoteSubmit(choice, buttonElement) {
-            const voterId = voterIdInput.value.trim();
-            if (!voterId) {
-                showStatusMessage('กรุณากรอกรหัสผู้โหวต หรือชื่อของคุณก่อน', true);
-                voterIdInput.focus(); return;
-            }
-            const originalButtonText = buttonElement.innerHTML;
-            buttonElement.disabled = true;
-            buttonElement.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่ง...`;
-            const data = { voterId, choice, sheetId: APP_CONFIG.sheetId, action: 'recordVote' }; // เพิ่ม action
-            try {
-                // เปลี่ยน mode จาก 'no-cors' เพื่อให้อ่าน response ได้
-                const response = await fetch(APP_CONFIG.APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                if (!response.ok) {
-                    // หากมีปัญหาฝั่งเซิร์ฟเวอร์ (เช่น HTTP 500)
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json(); // อ่าน response ที่เป็น JSON
-
-                if (result.success) {
-                    showStatusMessage(`โหวตให้ "${choice}" สำเร็จ!`, false);
-                    voterIdInput.value = '';
-                } else {
-                    // แสดงข้อความที่ส่งมาจาก Apps Script (เช่น 'คุณได้โหวตไปแล้ว')
-                    showStatusMessage(result.message || 'ไม่สามารถส่งคะแนนได้', true);
-                }
-
-            } catch (error) {
-                console.error('Error submitting vote:', error);
-                showStatusMessage(`เกิดข้อผิดพลาด: ${error.message}`, true);
-            } finally {
-                buttonElement.disabled = false;
-                buttonElement.innerHTML = originalButtonText;
-            }
-        }
     </script>
 </body>
 </html>
