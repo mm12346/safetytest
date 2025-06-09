@@ -298,6 +298,50 @@
         cancelSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
         saveSettingsBtn.addEventListener('click', saveConfig);
         settingsModal.addEventListener('click', e => e.target === settingsModal && settingsModal.classList.add('hidden'));
+
+        async function handleVoteSubmit(choice, buttonElement) {
+            const voterId = voterIdInput.value.trim();
+            if (!voterId) {
+                showStatusMessage('กรุณากรอกรหัสผู้โหวต หรือชื่อของคุณก่อน', true);
+                voterIdInput.focus(); return;
+            }
+            const originalButtonText = buttonElement.innerHTML;
+            buttonElement.disabled = true;
+            buttonElement.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่ง...`;
+            const data = { voterId, choice, sheetId: APP_CONFIG.sheetId, action: 'recordVote' }; // เพิ่ม action
+            try {
+                // เปลี่ยน mode จาก 'no-cors' เพื่อให้อ่าน response ได้
+                const response = await fetch(APP_CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    // หากมีปัญหาฝั่งเซิร์ฟเวอร์ (เช่น HTTP 500)
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json(); // อ่าน response ที่เป็น JSON
+
+                if (result.success) {
+                    showStatusMessage(`โหวตให้ "${choice}" สำเร็จ!`, false);
+                    voterIdInput.value = '';
+                } else {
+                    // แสดงข้อความที่ส่งมาจาก Apps Script (เช่น 'คุณได้โหวตไปแล้ว')
+                    showStatusMessage(result.message || 'ไม่สามารถส่งคะแนนได้', true);
+                }
+
+            } catch (error) {
+                console.error('Error submitting vote:', error);
+                showStatusMessage(`เกิดข้อผิดพลาด: ${error.message}`, true);
+            } finally {
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = originalButtonText;
+            }
+        }
     </script>
 </body>
 </html>
