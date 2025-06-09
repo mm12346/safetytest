@@ -232,12 +232,14 @@
 
             data.forEach(candidate => {
                 const card = document.createElement('div');
-                card.className = 'candidate-card bg-white p-5 rounded-lg shadow-lg text-center';
+                card.className = 'candidate-card bg-white p-5 rounded-lg shadow-lg text-center flex flex-col';
                 card.innerHTML = `
-                    <img src="${candidate.imageUrl}" alt="รูปของ ${candidate.name}" class="w-full h-56 sm:h-64 lg:h-72 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/64748b?text=ไม่มีรูป';">
-                    <h3 class="text-xl font-bold">${candidate.name}</h3>
-                    <p class="text-gray-500 mb-4">เบอร์ ${candidate.number}</p>
-                    <button class="vote-btn w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors" data-id="${candidate.id}" data-name="${candidate.name}" ${hasVoted ? 'disabled' : ''}>
+                    <img src="${candidate.imageUrl}" alt="รูปของ ${candidate.name}" class="w-full h-48 sm:h-64 lg:h-72 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/64748b?text=ไม่มีรูป';">
+                    <div class="flex-grow">
+                        <h3 class="text-xl font-bold mb-1">${candidate.name}</h3>
+                        <p class="text-2xl font-semibold text-blue-600 mb-4">เบอร์ ${candidate.number}</p>
+                    </div>
+                    <button class="vote-btn w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors mt-auto" data-id="${candidate.id}" data-name="${candidate.name}" ${hasVoted ? 'disabled' : ''}>
                         ${hasVoted ? 'ลงคะแนนแล้ว' : 'ลงคะแนน'}
                     </button>
                 `;
@@ -272,6 +274,23 @@
         }
 
         /**
+         * Generates an array of distinct colors for the chart.
+         * @param {number} count - The number of colors to generate.
+         * @returns {string[]} An array of RGBA color strings.
+         */
+        function generateChartColors(count) {
+            const colors = [];
+            const hueStep = 360 / count;
+            for (let i = 0; i < count; i++) {
+                const hue = i * hueStep;
+                // Using HSL for more pleasant, less clashy colors
+                colors.push(`hsla(${hue}, 70%, 60%, 0.8)`);
+            }
+            return colors;
+        }
+
+
+        /**
          * Renders the admin dashboard with chart and table
          */
         async function renderAdminDashboard() {
@@ -292,8 +311,11 @@
             const sortedResults = Object.entries(data.results).sort(([,a],[,b]) => b.votes - a.votes);
 
             // Prepare data for Chart.js
-            const labels = sortedResults.map(([,item]) => item.name);
+            const labels = sortedResults.map(([,item]) => `${item.name} (เบอร์ ${item.number})`);
             const votes = sortedResults.map(([,item]) => item.votes);
+            const backgroundColors = generateChartColors(sortedResults.length);
+            const borderColors = backgroundColors.map(color => color.replace('0.8', '1'));
+
 
             // Render Table
             const tableContainer = document.getElementById('results-table-container');
@@ -302,7 +324,7 @@
                     <thead class="bg-gray-200">
                         <tr>
                             <th class="p-3">อันดับ</th>
-                            <th class="p-3">เบอร์</th>
+                            <th class="p-3 text-center">เบอร์</th>
                             <th class="p-3">ชื่อผู้สมัคร</th>
                             <th class="p-3 text-right">คะแนน</th>
                         </tr>
@@ -334,8 +356,8 @@
                     datasets: [{
                         label: 'จำนวนคะแนน',
                         data: votes,
-                        backgroundColor: 'rgba(124, 58, 237, 0.8)',
-                        borderColor: 'rgba(124, 58, 237, 1)',
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
                         borderWidth: 1
                     }]
                 },
