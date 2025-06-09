@@ -139,9 +139,7 @@
             </div>
             <h2 class="text-2xl font-bold mb-2">ลงคะแนนสำเร็จ</h2>
             <p class="mb-6 text-lg">ขอบคุณสำหรับความร่วมมือของคุณ</p>
-            <button onclick="closeModal('success-modal')" class="w-full bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors">
-                ปิด
-            </button>
+            <p class="text-sm text-gray-500">หน้าต่างนี้จะปิดอัตโนมัติในอีกสักครู่...</p>
         </div>
     </div>
 
@@ -236,7 +234,7 @@
                 const card = document.createElement('div');
                 card.className = 'candidate-card bg-white p-5 rounded-lg shadow-lg text-center';
                 card.innerHTML = `
-                    <img src="${candidate.imageUrl}" alt="รูปของ ${candidate.name}" class="w-full h-64 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/64748b?text=ไม่มีรูป';">
+                    <img src="${candidate.imageUrl}" alt="รูปของ ${candidate.name}" class="w-full h-72 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/64748b?text=ไม่มีรูป';">
                     <h3 class="text-xl font-bold">${candidate.name}</h3>
                     <p class="text-gray-500 mb-4">เบอร์ ${candidate.number}</p>
                     <button class="vote-btn w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors" data-id="${candidate.id}" data-name="${candidate.name}" ${hasVoted ? 'disabled' : ''}>
@@ -374,6 +372,11 @@
                 closeModal('confirmation-modal');
                 openModal('success-modal'); // Show success popup
                 await updateTotalVotes(); 
+                
+                // Automatically close the window after a short delay
+                setTimeout(() => {
+                    window.location.href = 'about:blank';
+                }, 2500); // 2.5 seconds delay
 
             } catch (error) {
                 console.error("Submit Vote Error:", error);
