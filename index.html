@@ -152,11 +152,13 @@
         // !!! ================================================================= !!!
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVLafzVkpuLwiLJ8K0Vv2DOrJbgH2jGKuQ4sx5gOfPdh0s-Se-89Xr5S_6Gz3SWqIz/exec';
         const ADMIN_PASSWORD = '5867050201';
-        const REFRESH_INTERVAL = 15000; // 15 seconds for admin refresh
+        const ADMIN_REFRESH_INTERVAL = 15000; // 15 seconds for admin refresh
+        const VOTER_REFRESH_INTERVAL = 60000; // 1 minute for voter refresh
 
         // --- STATE ---
         let resultsChart = null;
         let adminInterval = null;
+        let voterInterval = null;
 
         // --- DOM ELEMENTS ---
         const voterView = document.getElementById('voter-view');
@@ -430,7 +432,10 @@
          * Manages view switching and admin access control.
          */
         function switchView() {
-            clearInterval(adminInterval); // Clear any existing interval
+            // Clear any existing intervals
+            clearInterval(adminInterval);
+            clearInterval(voterInterval);
+
             const hash = window.location.hash;
 
             if (hash === '#admin') {
@@ -439,7 +444,7 @@
                     voterView.classList.add('hidden');
                     adminView.classList.remove('hidden');
                     renderAdminDashboard();
-                    adminInterval = setInterval(renderAdminDashboard, REFRESH_INTERVAL);
+                    adminInterval = setInterval(renderAdminDashboard, ADMIN_REFRESH_INTERVAL);
                 } else {
                     voterView.classList.remove('hidden'); // Show voter view as default
                     adminView.classList.add('hidden');
@@ -449,7 +454,8 @@
                 adminView.classList.add('hidden');
                 voterView.classList.remove('hidden');
                 renderCandidates();
-                updateTotalVotes();
+                updateTotalVotes(); // Call once immediately
+                voterInterval = setInterval(updateTotalVotes, VOTER_REFRESH_INTERVAL); // Refresh every minute
             }
         }
         
