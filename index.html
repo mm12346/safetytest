@@ -31,7 +31,22 @@
                     <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">ระบบโหวตออนไลน์</h1>
                     <p class="text-gray-500 mt-2">ลงคะแนนและตรวจสอบผลได้แบบเรียลไทม์</p>
                 </header>
-
+                <!-- เพิ่มหลัง header แต่ก่อน nav -->
+                    <div class="flex justify-between items-center px-4 py-3 bg-blue-50 rounded-lg mb-6">
+                        <div class="flex items-center">
+                            <i class="fas fa-users text-blue-600 text-xl mr-3"></i>
+                            <div>
+                                <h3 class="font-medium text-gray-800">จำนวนผู้ลงคะแนนแล้ว</h3>
+                                <p class="text-sm text-gray-600">อัพเดทล่าสุด: <span id="last-update-time">-</span></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <span id="vote-count" class="text-2xl font-bold text-blue-600">0</span>
+                            <button id="refresh-count" class="ml-3 p-2 text-gray-500 hover:text-blue-600 transition-colors">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
                 <nav class="flex justify-center border-b border-gray-200 mb-8">
                     <button id="nav-vote" class="btn-nav active flex-1 sm:flex-none text-base sm:text-lg font-medium py-3 px-4 text-gray-600 hover:bg-gray-100 transition text-center"><i class="fas fa-vote-yea mr-2"></i>หน้าลงคะแนน</button>
                     <button id="nav-admin" class="btn-nav flex-1 sm:flex-none text-base sm:text-lg font-medium py-3 px-4 text-gray-600 hover:bg-gray-100 transition text-center"><i class="fas fa-chart-bar mr-2"></i>หน้าดูผลคะแนน</button>
@@ -345,6 +360,115 @@
         cancelSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
         saveSettingsBtn.addEventListener('click', saveConfig);
         settingsModal.addEventListener('click', e => e.target === settingsModal && settingsModal.classList.add('hidden'));
+
+                // เพิ่มต่อจากฟังก์ชันที่มีอยู่
+        async function getVoteCount() {
+            try {
+                const response = await fetch(buildUrl('getResults'));
+                if (!response.ok) throw new Error('Network response was not ok');
+                const results = await response.json();
+                
+                // นับจำนวนการโหวตที่ไม่ซ้ำกัน (ใช้ Browser ID)
+                const uniqueVoters = new Set(results.map(r => r.BrowserID)).size;
+                
+                // อัพเดท UI
+                document.getElementById('vote-count').textContent = uniqueVoters;
+                document.getElementById('last-update-time').textContent = new Date().toLocaleTimeString('th-TH');
+                
+                return uniqueVoters;
+            } catch (error) {
+                console.error('Error fetching vote count:', error);
+                document.getElementById('vote-count').textContent = '-';
+                document.getElementById('last-update-time').textContent = 'เกิดข้อผิดพลาด';
+            }
+        }
+
+        // เพิ่ม Event Listener สำหรับปุ่มรีเฟรช
+        document.getElementById('refresh-count').addEventListener('click', async (e) => {
+            const button = e.currentTarget;
+            button.disabled = true;
+            button.classList.add('animate-spin');
+            await getVoteCount();
+            button.disabled = false;
+            button.classList.remove('animate-spin');
+        });
+
+        // เพิ่มการเรียกใช้ getVoteCount ใน DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+            fetchCandidates();
+            getVoteCount(); // เพิ่มบรรทัดนี้
+        });
+
+        // อัพเดทฟังก์ชัน handleVoteSubmit เพื่อรีเฟรชจำนวนโหวตหลังลงคะแนน
+        async function handleVoteSubmit(choice, buttonElement) {
+            // ...existing code...
+            try {
+                await fetch(APP_CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                localStorage.setItem(LOCAL_STORAGE_KEY_VOTED, 'true');
+                showStatusMessage(`โหวตให้ "${choice}" สำเร็จ!`, false);
+                disableAllVoteButtons();
+                
+                // เพิ่มบรรทัดนี้เพื่ออัพเดทจำนวนโหวต
+                setTimeout(getVoteCount, 1000); // รอ 1 วินาทีเพื่อให้ข้อมูลอัพเดทใน sheet
+
+            } catch (error) {
+                // ...existing error handling...
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+    loadConfig();
+    fetchCandidates();
+    getVoteCount(); // เรียกครั้งแรก
+    
+    // เพิ่มการอัพเดทอัตโนมัติทุก 3 นาที
+    const AUTO_UPDATE_INTERVAL = 3 * 60 * 1000; // 3 นาทีในมิลลิวินาที
+    let updateTimer = setInterval(async () => {
+        try {
+            await getVoteCount();
+            console.log('Auto-updated vote count');
+        } catch (error) {
+            console.error('Auto-update failed:', error);
+        }
+    }, AUTO_UPDATE_INTERVAL);
+
+    // ล้าง timer เมื่อออกจากหน้า
+    window.addEventListener('beforeunload', () => {
+        if (updateTimer) {
+            clearInterval(updateTimer);
+        }
+    });
+});
+
+        // อัพเดทฟังก์ชัน getVoteCount ให้แสดงเวลาที่เหลือ
+        async function getVoteCount() {
+            try {
+                const response = await fetch(buildUrl('getResults'));
+                if (!response.ok) throw new Error('Network response was not ok');
+                const results = await response.json();
+                
+                // นับจำนวนการโหวตที่ไม่ซ้ำกัน
+                const uniqueVoters = new Set(results.map(r => r.BrowserID)).size;
+                
+                // อัพเดท UI
+                document.getElementById('vote-count').textContent = uniqueVoters;
+                const currentTime = new Date().toLocaleTimeString('th-TH');
+                document.getElementById('last-update-time').textContent = `${currentTime} (อัพเดททุก 3 นาที)`;
+                
+                return uniqueVoters;
+            } catch (error) {
+                console.error('Error fetching vote count:', error);
+                document.getElementById('vote-count').textContent = '-';
+                document.getElementById('last-update-time').textContent = 'เกิดข้อผิดพลาด';
+            }
+        }
     </script>
 </body>
 </html>
