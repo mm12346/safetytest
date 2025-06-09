@@ -3,472 +3,439 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบโหวตออนไลน์</title>
+    <title>ระบบลงคะแนนเลือกตั้ง</title>
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #f0f2f5; }
-        @keyframes fadeInOut {
-            0%, 100% { opacity: 0; transform: translateY(10px); }
-            10%, 90% { opacity: 1; transform: translateY(0); }
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Kanit', sans-serif;
         }
-        .status-message { animation: fadeInOut 4s ease-in-out forwards; }
-        .btn-nav.active { background-color: #1d4ed8; color: white; border-bottom-color: transparent; }
-        .candidate-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
-        .candidate-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
-        .skeleton-card { background-color: #e5e7eb; border-radius: 0.5rem; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 50% { opacity: .5; } }
-        .modal-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+        /* Simple animation for cards */
+        .candidate-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .candidate-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Disabled button style */
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 text-gray-800">
 
-    <div class="container mx-auto max-w-4xl p-4 min-h-screen">
-        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-            <div class="p-6 sm:p-8">
-                <header class="text-center mb-8">
-                    <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">ระบบโหวตออนไลน์</h1>
-                    <p class="text-gray-500 mt-2">ลงคะแนนและตรวจสอบผลได้แบบเรียลไทม์</p>
-                </header>
-                <!-- เพิ่มหลัง header แต่ก่อน nav -->
-                    <div class="flex justify-between items-center px-4 py-3 bg-blue-50 rounded-lg mb-6">
-                        <div class="flex items-center">
-                            <i class="fas fa-users text-blue-600 text-xl mr-3"></i>
-                            <div>
-                                <h3 class="font-medium text-gray-800">จำนวนผู้ลงคะแนนแล้ว</h3>
-                                <p class="text-sm text-gray-600">อัพเดทล่าสุด: <span id="last-update-time">-</span></p>
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            <span id="vote-count" class="text-2xl font-bold text-blue-600">0</span>
-                            <button id="refresh-count" class="ml-3 p-2 text-gray-500 hover:text-blue-600 transition-colors">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 sm:p-6 md:p-8">
+
+        <!-- ===== Voter View ===== -->
+        <div id="voter-view">
+            <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-blue-600">ลงคะแนนเลือกตั้ง</h1>
+                <p class="text-lg mt-2 text-gray-600">โปรดเลือกผู้สมัครที่คุณต้องการ</p>
+                <div id="total-votes-display" class="mt-4 text-xl font-semibold bg-white p-3 rounded-lg shadow-md inline-block">
+                    กำลังโหลดจำนวนผู้ลงคะแนน...
+                </div>
+            </header>
+
+            <!-- Candidates Grid - Responsive by default -->
+            <div id="candidates-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Loading Skeleton -->
+                <div class="loading-placeholder bg-white p-5 rounded-lg shadow-lg text-center animate-pulse col-span-full">
+                    <div class="h-40 bg-gray-200 rounded-md w-full mb-4"></div>
+                    <div class="h-6 bg-gray-200 rounded w-3/4 mx-auto mb-2"></div>
+                    <div class="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-4"></div>
+                    <div class="h-12 bg-gray-300 rounded w-full"></div>
+                </div>
+            </div>
+             <p id="voted-message" class="hidden text-center text-2xl font-bold text-green-600 bg-green-100 p-6 rounded-lg shadow-lg mt-8">
+                ขอบคุณสำหรับความร่วมมือ คุณได้ลงคะแนนเรียบร้อยแล้ว
+             </p>
+        </div>
+
+        <!-- ===== Admin View ===== -->
+        <div id="admin-view" class="hidden">
+            <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-purple-600">สรุปผลคะแนน (สำหรับผู้ดูแล)</h1>
+                <p class="text-lg mt-2 text-gray-600">ข้อมูลอัปเดตอัตโนมัติทุก 15 วินาที</p>
+            </header>
+
+            <!-- Admin Content - Stacks on mobile -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                <!-- Chart -->
+                <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4">กราฟแสดงผลคะแนน</h2>
+                    <canvas id="results-chart"></canvas>
+                </div>
+
+                <!-- Table -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4">ตารางสรุปผล</h2>
+                    <div id="results-table-container" class="overflow-x-auto">
+                         <p class="text-center text-gray-500">กำลังโหลดข้อมูล...</p>
                     </div>
-                <nav class="flex justify-center border-b border-gray-200 mb-8">
-                    <button id="nav-vote" class="btn-nav active flex-1 sm:flex-none text-base sm:text-lg font-medium py-3 px-4 text-gray-600 hover:bg-gray-100 transition text-center"><i class="fas fa-vote-yea mr-2"></i>หน้าลงคะแนน</button>
-                    <button id="nav-admin" class="btn-nav flex-1 sm:flex-none text-base sm:text-lg font-medium py-3 px-4 text-gray-600 hover:bg-gray-100 transition text-center"><i class="fas fa-chart-bar mr-2"></i>หน้าดูผลคะแนน</button>
-                </nav>
-
-                <main>
-                    <!-- Voting Section -->
-                    <div id="vote-view">
-                        <!-- Removed voter-id input field -->
-                        <div id="candidate-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-6"></div>
-                        <div id="status-message-container" class="h-16 mt-6"></div>
-                    </div>
-
-                    <!-- Admin/Results Section -->
-                    <div id="admin-view" class="hidden">
-                        <!-- Login View -->
-                        <div id="admin-login-view">
-                            <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Admin Login</h2>
-                            <p class="text-center text-gray-500 mb-6">กรุณาใส่รหัสผ่านเพื่อดูผลคะแนน</p>
-                            <form id="login-form" class="max-w-sm mx-auto space-y-4">
-                                <div>
-                                    <label for="admin-password" class="sr-only">Password</label>
-                                    <input type="password" id="admin-password" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition text-center" placeholder="Password" required>
-                                </div>
-                                <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700">เข้าสู่ระบบ</button>
-                            </form>
-                            <div id="login-error-message" class="text-red-500 text-center mt-4 font-medium"></div>
-                        </div>
-
-                        <!-- Results View -->
-                        <div id="admin-results-view" class="hidden">
-                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                                <h2 class="text-2xl font-bold text-gray-800">ผลการโหวตล่าสุด</h2>
-                                <div class="flex gap-2">
-                                     <button id="refresh-btn" class="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition"><i class="fas fa-sync-alt"></i></button>
-                                     <button id="settings-btn" class="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition"><i class="fas fa-cog"></i></button>
-                                </div>
-                            </div>
-                            <div class="overflow-x-auto bg-gray-50 p-2 rounded-lg border">
-                                <table class="min-w-full text-left">
-                                    <thead class="bg-gray-200">
-                                        <tr>
-                                            <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Timestamp</th>
-                                            <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Browser ID</th> <!-- Changed from Voter ID -->
-                                            <th class="p-3 text-sm font-semibold text-gray-600 uppercase">Choice</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="results-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </main>
+                </div>
             </div>
         </div>
-        <footer class="text-center py-6 text-gray-500 text-sm">
-            <p>Voting Application &copy; 2024</p>
+
+        <!-- Footer -->
+         <footer class="text-center mt-12 text-gray-500">
+            <p>Web Application for Election Voting System</p>
+            <a href="#" onclick="navigateToHash(event)" class="text-blue-500 hover:underline">สลับไปหน้า Admin/Voter</a>
         </footer>
+
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="modal-backdrop absolute inset-0"></div>
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md z-10">
-            <h3 class="text-2xl font-bold mb-4">ตั้งค่า</h3>
-            <div id="settings-status" class="mb-4"></div>
-            <div class="space-y-4">
-                <div>
-                    <label for="sheet-id-input" class="block text-sm font-medium text-gray-700">Google Sheet ID</label>
-                    <input type="text" id="sheet-id-input" class="w-full p-2 mt-1 border border-gray-300 rounded-lg" placeholder="ใส่ ID ของ Google Sheet ที่นี่">
-                    <p class="text-xs text-gray-500 mt-1">ปล่อยว่างเพื่อใช้ Spreadsheet ที่ผูกกับสคริปต์โดยตรง</p>
-                </div>
-                <div class="flex justify-end gap-3">
-                    <button id="cancel-settings-btn" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button id="save-settings-btn" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">บันทึก</button>
-                </div>
+    <!-- Modal for vote confirmation -->
+    <div id="confirmation-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center">
+            <h2 class="text-2xl font-bold mb-4">ยืนยันการลงคะแนน</h2>
+            <p id="modal-text" class="mb-6 text-lg">คุณต้องการลงคะแนนให้ ... ใช่หรือไม่?</p>
+            <div class="flex justify-center gap-4">
+                <button id="confirm-vote-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">
+                    ยืนยัน
+                </button>
+                <button onclick="closeModal('confirmation-modal')" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors">
+                    ยกเลิก
+                </button>
             </div>
         </div>
     </div>
+    
+    <!-- Modal for Admin Login -->
+    <div id="admin-login-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full">
+            <h2 class="text-2xl font-bold mb-4 text-center">สำหรับผู้ดูแลระบบ</h2>
+            <p class="text-center text-gray-600 mb-6">โปรดกรอกรหัสผ่านเพื่อเข้าสู่ระบบ</p>
+            <div>
+                <label for="admin-password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
+                <input type="password" id="admin-password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                <p id="login-error-msg" class="text-red-500 text-sm mt-2 hidden">รหัสผ่านไม่ถูกต้อง</p>
+            </div>
+            <div class="flex justify-end gap-4 mt-6">
+                 <button onclick="handleAdminLogin()" class="w-full bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition-colors">
+                    เข้าสู่ระบบ
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
-        const APP_CONFIG = {
-            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwj2a_1R9ehhAVGikPFOo5ga1Rg0d2hViKPSB0whWtUG_ZD6d3Oanbnamoyr28yAt2H3g/exec',
-            ADMIN_PASSWORD: '5867050201',
-            sheetId: '1Rc3z2Gizy5CgUuihQmdhQ6IE-y0aUgDglDd_lryuHWo' // <<--- ใส่ Google Sheet ID ตรงนี้
-        };
-        let isAdminLoggedIn = false;
-        const LOCAL_STORAGE_KEY_VOTED = 'hasVoted'; // Key to store voting status
-        const LOCAL_STORAGE_KEY_BROWSER_ID = 'browserId'; // Key to store browser ID
+        // --- CONFIGURATION ---
+        // !!! ================================================================= !!!
+        // !!!  สำคัญ: กรุณานำ URL ของเว็บแอปที่คุณได้จากการ Deploy              !!!
+        // !!!  ใน Google Apps Script มาวางแทนที่ข้อความข้างล่างนี้             !!!
+        // !!! ================================================================= !!!
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVLafzVkpuLwiLJ8K0Vv2DOrJbgH2jGKuQ4sx5gOfPdh0s-Se-89Xr5S_6Gz3SWqIz/exec';
+        const ADMIN_PASSWORD = '5867050201';
+        const REFRESH_INTERVAL = 15000; // 15 seconds for admin refresh
 
-        // DOM Elements
-        const { voteView, adminView, adminLoginView, adminResultsView, navVote, navAdmin, loginForm, adminPasswordInput, loginErrorMessage, candidateCardsContainer, statusContainer, resultsTableBody, refreshBtn, settingsBtn, settingsModal, cancelSettingsBtn, saveSettingsBtn, sheetIdInput, settingsStatus } = (() => ({
-            voteView: document.getElementById('vote-view'),
-            adminView: document.getElementById('admin-view'),
-            adminLoginView: document.getElementById('admin-login-view'),
-            adminResultsView: document.getElementById('admin-results-view'),
-            navVote: document.getElementById('nav-vote'),
-            navAdmin: document.getElementById('nav-admin'),
-            loginForm: document.getElementById('login-form'),
-            adminPasswordInput: document.getElementById('admin-password'),
-            loginErrorMessage: document.getElementById('login-error-message'),
-            // voterIdInput: document.getElementById('voter-id'), // Removed
-            candidateCardsContainer: document.getElementById('candidate-cards'),
-            statusContainer: document.getElementById('status-message-container'),
-            resultsTableBody: document.getElementById('results-table-body'),
-            refreshBtn: document.getElementById('refresh-btn'),
-            settingsBtn: document.getElementById('settings-btn'),
-            settingsModal: document.getElementById('settings-modal'),
-            cancelSettingsBtn: document.getElementById('cancel-settings-btn'),
-            saveSettingsBtn: document.getElementById('save-settings-btn'),
-            sheetIdInput: document.getElementById('sheet-id-input'),
-            settingsStatus: document.getElementById('settings-status'),
-        }))();
+        // --- STATE ---
+        let resultsChart = null;
+        let adminInterval = null;
 
-        // ปิดการแก้ไข Sheet ID จาก UI และ LocalStorage
-        function loadConfig() {
-            // ไม่โหลดจาก localStorage อีกต่อไป
-        }
-        function saveConfig() {
-            // ไม่อนุญาตให้เปลี่ยน sheetId
-            settingsStatus.innerHTML = `<div class="p-2 bg-red-100 text-red-700 rounded-lg text-sm">ไม่สามารถเปลี่ยน Sheet ID ได้</div>`;
-            setTimeout(() => {
-                settingsModal.classList.add('hidden');
-                settingsStatus.innerHTML = '';
-            }, 1500);
+        // --- DOM ELEMENTS ---
+        const voterView = document.getElementById('voter-view');
+        const adminView = document.getElementById('admin-view');
+        const candidatesGrid = document.getElementById('candidates-grid');
+        const totalVotesDisplay = document.getElementById('total-votes-display');
+        const votedMessage = document.getElementById('voted-message');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const adminLoginModal = document.getElementById('admin-login-modal');
+        const modalText = document.getElementById('modal-text');
+        const confirmVoteBtn = document.getElementById('confirm-vote-btn');
+        const adminPasswordField = document.getElementById('admin-password');
+        const loginErrorMsg = document.getElementById('login-error-msg');
+
+        // --- FUNCTIONS ---
+        
+        /**
+         * Generic function to open a modal by its ID.
+         * @param {string} modalId
+         */
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
         }
 
-        function buildUrl(action) {
-            let url = `${APP_CONFIG.APPS_SCRIPT_URL}?action=${action}`;
-            if (APP_CONFIG.sheetId) {
-                url += `&sheetId=${APP_CONFIG.sheetId}`;
+        /**
+         * Generic function to close a modal by its ID.
+         * @param {string} modalId
+         */
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+
+        /**
+         * Fetches data from the Google Apps Script API
+         * @param {string} action - The action to perform (e.g., 'getcandidates', 'getresults')
+         */
+        async function fetchData(action) {
+            // Check if the URL is still a placeholder
+            if (SCRIPT_URL.includes('REPLACE_WITH_YOUR_GOOGLE_APPS_SCRIPT_URL')) {
+                console.error("Please replace the placeholder SCRIPT_URL with your actual Google Apps Script URL.");
+                document.body.innerHTML = `<div class="p-8 text-center text-red-600 bg-red-100 h-screen flex items-center justify-center text-2xl font-sans"><div class="font-bold">**ข้อผิดพลาดในการตั้งค่า**<br>กรุณาตั้งค่า SCRIPT_URL ในโค้ดก่อนใช้งาน</div></div>`;
+                return null;
             }
-            return url;
-        }
-
-        async function fetchCandidates() {
-            showLoadingSkeletons();
             try {
-                const response = await fetch(buildUrl('getCandidates'));
-                if (!response.ok) throw new Error('Network response was not ok');
-                const candidates = await response.json();
-                renderCandidateCards(candidates);
-                checkIfAlreadyVoted(); // Check voting status after candidates are loaded
+                const response = await fetch(`${SCRIPT_URL}?action=${action}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
             } catch (error) {
-                console.error('Failed to fetch candidates:', error);
-                candidateCardsContainer.innerHTML = `<p class="text-center text-red-500 col-span-full">เกิดข้อผิดพลาดในการโหลดข้อมูลผู้สมัคร: ${error.message}</p>`;
+                console.error("Fetch Error:", error);
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์ โปรดตรวจสอบ URL ของสคริปต์และลองอีกครั้ง");
+                return null;
             }
         }
 
-        async function fetchResults() {
-            if (!isAdminLoggedIn) return;
-            resultsTableBody.innerHTML = '<tr><td colspan="3" class="text-center p-8 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>กำลังโหลดข้อมูล...</td></tr>';
-            try {
-                const response = await fetch(buildUrl('getResults'));
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const results = await response.json();
-                renderResults(results);
-            } catch (error) {
-                console.error('Error fetching results:', error);
-                resultsTableBody.innerHTML = `<tr><td colspan="3" class="text-center p-8 text-red-500">เกิดข้อผิดพลาดในการดึงข้อมูล: ${error.message}</td></tr>`;
+        /**
+         * Renders the candidate cards on the voter page
+         */
+        async function renderCandidates() {
+            const hasVoted = localStorage.getItem('hasVoted') === 'true';
+            const data = await fetchData('getcandidates');
+            
+            candidatesGrid.innerHTML = ''; // Clear loading skeleton
+
+            if (!data) {
+                candidatesGrid.innerHTML = '<p class="text-center text-red-500 col-span-full">ไม่สามารถโหลดข้อมูลผู้สมัครได้</p>';
+                return;
+            }
+
+            data.forEach(candidate => {
+                const card = document.createElement('div');
+                card.className = 'candidate-card bg-white p-5 rounded-lg shadow-lg text-center';
+                card.innerHTML = `
+                    <img src="${candidate.imageUrl}" alt="รูปของ ${candidate.name}" class="w-full h-64 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/64748b?text=ไม่มีรูป';">
+                    <h3 class="text-xl font-bold">${candidate.name}</h3>
+                    <p class="text-gray-500 mb-4">เบอร์ ${candidate.number}</p>
+                    <button class="vote-btn w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors" data-id="${candidate.id}" data-name="${candidate.name}" ${hasVoted ? 'disabled' : ''}>
+                        ${hasVoted ? 'ลงคะแนนแล้ว' : 'ลงคะแนน'}
+                    </button>
+                `;
+                candidatesGrid.appendChild(card);
+            });
+
+             if (hasVoted) {
+                votedMessage.classList.remove('hidden');
+            } else {
+                 // Add event listeners to new buttons
+                document.querySelectorAll('.vote-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                       const { id, name } = e.currentTarget.dataset;
+                       modalText.textContent = `คุณต้องการลงคะแนนให้ "${name}" ใช่หรือไม่?`;
+                       confirmVoteBtn.dataset.id = id;
+                       openModal('confirmation-modal');
+                    });
+                });
             }
         }
 
-        function getBrowserId() {
-            let browserId = localStorage.getItem(LOCAL_STORAGE_KEY_BROWSER_ID);
-            if (!browserId) {
-                browserId = crypto.randomUUID(); // Generate a unique ID for the browser
-                localStorage.setItem(LOCAL_STORAGE_KEY_BROWSER_ID, browserId);
-            }
-            return browserId;
+        /**
+         * Updates the display of total votes.
+         */
+        async function updateTotalVotes() {
+             const data = await fetchData('getresults');
+             if (data && data.totalVotes !== undefined) {
+                 totalVotesDisplay.innerHTML = `มีผู้ลงคะแนนแล้ว: <span class="text-blue-700">${data.totalVotes.toLocaleString()}</span> คน`;
+             } else if (data !== null) { // Only update if fetch didn't fail
+                 totalVotesDisplay.innerHTML = `ไม่สามารถโหลดข้อมูลได้`;
+             }
         }
 
-        function checkIfAlreadyVoted() {
-            const hasVoted = localStorage.getItem(LOCAL_STORAGE_KEY_VOTED);
-            if (hasVoted) {
-                showStatusMessage('คุณได้ทำการโหวตไปแล้ว 1 ครั้ง และไม่สามารถโหวตซ้ำได้', true);
-                disableAllVoteButtons();
+        /**
+         * Renders the admin dashboard with chart and table
+         */
+        async function renderAdminDashboard() {
+            const data = await fetchData('getresults');
+            if (!data || !data.results) {
+                document.getElementById('results-table-container').innerHTML = '<p class="text-center text-red-500">ไม่สามารถโหลดข้อมูลสรุปผลได้</p>';
+                return;
             }
-        }
 
-        function disableAllVoteButtons() {
-            document.querySelectorAll('.vote-btn').forEach(button => {
-                button.disabled = true;
-                button.classList.add('bg-gray-400', 'hover:bg-gray-400');
-                button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            // Sort results from highest to lowest votes
+            const sortedResults = Object.entries(data.results).sort(([,a],[,b]) => b.votes - a.votes);
+
+            // Prepare data for Chart.js
+            const labels = sortedResults.map(([,item]) => item.name);
+            const votes = sortedResults.map(([,item]) => item.votes);
+
+            // Render Table
+            const tableContainer = document.getElementById('results-table-container');
+            let tableHTML = `
+                <table class="w-full text-left">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="p-3">อันดับ</th>
+                            <th class="p-3">ชื่อผู้สมัคร</th>
+                            <th class="p-3 text-right">คะแนน</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            sortedResults.forEach(([id, item], index) => {
+                tableHTML += `
+                    <tr class="border-b">
+                        <td class="p-3 font-semibold">${index + 1}</td>
+                        <td class="p-3">${item.name}</td>
+                        <td class="p-3 text-right font-semibold">${item.votes.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+            tableHTML += '</tbody></table>';
+            tableContainer.innerHTML = tableHTML;
+
+            // Render Chart
+            const chartCanvas = document.getElementById('results-chart').getContext('2d');
+            if(resultsChart) {
+                resultsChart.destroy(); 
+            }
+            resultsChart = new Chart(chartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'จำนวนคะแนน',
+                        data: votes,
+                        backgroundColor: 'rgba(124, 58, 237, 0.8)',
+                        borderColor: 'rgba(124, 58, 237, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                    responsive: true,
+                    plugins: { legend: { display: false } }
+                }
             });
         }
 
-        async function handleVoteSubmit(choice, buttonElement) {
-            const hasVoted = localStorage.getItem(LOCAL_STORAGE_KEY_VOTED);
-            if (hasVoted) {
-                showStatusMessage('คุณได้ทำการโหวตไปแล้ว 1 ครั้ง และไม่สามารถโหวตซ้ำได้', true);
-                return;
-            }
+        /**
+         * Submits the vote to the backend API.
+         */
+        async function submitVote() {
+            const candidateId = confirmVoteBtn.dataset.id;
+            confirmVoteBtn.disabled = true;
+            confirmVoteBtn.textContent = 'กำลังส่ง...';
 
-            const browserId = getBrowserId(); // Get or generate browser ID
-
-            const originalButtonText = buttonElement.innerHTML;
-            buttonElement.disabled = true;
-            buttonElement.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่ง...`;
-
-            const data = { browserId, choice, sheetId: APP_CONFIG.sheetId }; // Send browserId instead of voterId
             try {
-                // Changed mode back to 'no-cors' to avoid CORS issues that cause 'Failed to fetch'
-                await fetch(APP_CONFIG.APPS_SCRIPT_URL, {
+                await fetch(SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    headers: {'Content-Type': 'application/json',},
+                    body: JSON.stringify({ candidateId: candidateId })
+                });
+                
+                localStorage.setItem('hasVoted', 'true');
+                votedMessage.classList.remove('hidden');
+
+                document.querySelectorAll('.vote-btn').forEach(button => {
+                    button.disabled = true;
+                    button.textContent = 'ลงคะแนนแล้ว';
                 });
 
-                // In 'no-cors' mode, the response is opaque. We cannot read response.ok or response.json().
-                // So, we assume success if the fetch operation itself does not throw an error.
-                // The Apps Script will handle duplicate vote logic on the server side.
-                localStorage.setItem(LOCAL_STORAGE_KEY_VOTED, 'true'); // Mark as voted in client-side storage
-                showStatusMessage(`โหวตให้ "${choice}" สำเร็จ!`, false);
-                disableAllVoteButtons(); // Disable all buttons after successful vote
+                closeModal('confirmation-modal');
+                await updateTotalVotes(); 
 
             } catch (error) {
-                console.error('Error submitting vote:', error);
-                // General error message as specific error details from Apps Script are not readable in 'no-cors' mode.
-                showStatusMessage('เกิดข้อผิดพลาด: ไม่สามารถส่งคะแนนได้ (อาจเกิดจากปัญหาเครือข่าย หรือการตั้งค่า Apps Script)', true);
+                console.error("Submit Vote Error:", error);
+                alert("เกิดข้อผิดพลาดในการส่งคะแนน");
             } finally {
-                buttonElement.disabled = false;
-                buttonElement.innerHTML = originalButtonText;
+                confirmVoteBtn.disabled = false;
+                confirmVoteBtn.textContent = 'ยืนยัน';
             }
         }
+        
+        /**
+         * Handles the admin login attempt.
+         */
+        function handleAdminLogin() {
+            if (adminPasswordField.value === ADMIN_PASSWORD) {
+                sessionStorage.setItem('isAdminLoggedIn', 'true');
+                loginErrorMsg.classList.add('hidden');
+                adminPasswordField.value = '';
+                closeModal('admin-login-modal');
+                switchView();
+            } else {
+                loginErrorMsg.classList.remove('hidden');
+            }
+        }
+        
+        /**
+         * Manages view switching and admin access control.
+         */
+        function switchView() {
+            clearInterval(adminInterval); // Clear any existing interval
+            const hash = window.location.hash;
 
-        function handleLogin(event) {
+            if (hash === '#admin') {
+                const isAdminLoggedIn = sessionStorage.getItem('isAdminLoggedIn') === 'true';
+                if (isAdminLoggedIn) {
+                    voterView.classList.add('hidden');
+                    adminView.classList.remove('hidden');
+                    renderAdminDashboard();
+                    adminInterval = setInterval(renderAdminDashboard, REFRESH_INTERVAL);
+                } else {
+                    voterView.classList.remove('hidden'); // Show voter view as default
+                    adminView.classList.add('hidden');
+                    openModal('admin-login-modal');
+                }
+            } else { // Voter view
+                adminView.classList.add('hidden');
+                voterView.classList.remove('hidden');
+                renderCandidates();
+                updateTotalVotes();
+            }
+        }
+        
+        /**
+         * Helper to navigate between views via the footer link.
+         * @param {Event} event
+         */
+        function navigateToHash(event) {
             event.preventDefault();
-            if (adminPasswordInput.value === APP_CONFIG.ADMIN_PASSWORD) {
-                isAdminLoggedIn = true;
-                adminLoginView.classList.add('hidden');
-                adminResultsView.classList.remove('hidden');
-                loginErrorMessage.textContent = '';
-                fetchResults();
+            if (window.location.hash === '#admin') {
+                window.location.hash = '';
             } else {
-                loginErrorMessage.textContent = 'รหัสผ่านไม่ถูกต้อง!';
-                adminPasswordInput.value = '';
+                window.location.hash = '#admin';
             }
         }
 
-        function switchTabView(viewToShow) {
-            voteView.classList.toggle('hidden', viewToShow !== 'vote');
-            adminView.classList.toggle('hidden', viewToShow !== 'admin');
-            navVote.classList.toggle('active', viewToShow === 'vote');
-            navAdmin.classList.toggle('active', viewToShow === 'admin');
-        }
+        // --- INITIALIZATION ---
+        
+        window.addEventListener('hashchange', switchView);
 
-        // --- UI Rendering Functions ---
-        function showLoadingSkeletons() {
-            candidateCardsContainer.innerHTML = Array(3).fill('<div class="skeleton-card h-80"></div>').join('');
-        }
-        function showStatusMessage(message, isError = false) {
-            statusContainer.innerHTML = `<div class="status-message p-3 rounded-lg text-center font-medium ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${message}</div>`;
-        }
-        function renderCandidateCards(candidates = []) {
-            if (!candidates || candidates.length === 0) {
-                candidateCardsContainer.innerHTML = `<p class="text-center text-red-500 col-span-full">ไม่พบข้อมูลผู้สมัคร</p>`;
-                return;
-            }
-            candidateCardsContainer.innerHTML = candidates.map(c => {
-                // ถ้าเป็น Google Drive link ให้แปลงเป็น direct link
-                let imgSrc = c.image;
-                const driveMatch = imgSrc && imgSrc.match(/drive\.google\.com\/file\/d\/([^/]+)\//);
-                if (driveMatch) {
-                    imgSrc = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
-                }
-                // ถ้าไม่มีรูปหรือแปลงไม่ได้ ให้ใช้ placeholder
-                if (!imgSrc || imgSrc.trim() === "") {
-                    imgSrc = 'https://placehold.co/400x400/cccccc/ffffff?text=No+Image';
-                }
-                return `
-                    <div class="candidate-card bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden text-center">
-                        <img src="${imgSrc}" alt="${c.name}" class="w-full h-48 object-cover bg-gray-200" onerror="this.onerror=null;this.src='https://placehold.co/400x400/cccccc/ffffff?text=Image+Error';">
-                        <div class="p-4">
-                            <h3 class="text-xl font-bold text-gray-800">${c.name}</h3>
-                            ${c.number ? `<p class="text-2xl font-bold text-blue-600 my-2">เบอร์ ${c.number}</p>` : '<p class="text-lg text-gray-500 my-2">-</p>'}
-                            <button data-choice="${c.name}" class="vote-btn w-full mt-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i class="fas fa-check-to-slot mr-2"></i>เลือกคนนี้</button>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-        function renderResults(results) {
-            if (results.length === 0) {
-                resultsTableBody.innerHTML = '<tr><td colspan="3" class="text-center p-8 text-gray-500">ยังไม่มีข้อมูลการโหวต</td></tr>';
-            } else {
-                resultsTableBody.innerHTML = results.map(row => `
-                    <tr class="border-b border-gray-200 hover:bg-gray-100">
-                        <td class="p-3 text-gray-700 text-sm">${row.Timestamp || 'N/A'}</td>
-                        <td class="p-3 text-gray-700 font-medium">${row.BrowserID || 'N/A'}</td> <!-- Changed from VoterID -->
-                        <td class="p-3 text-gray-700">${row.Choice || 'N/A'}</td>
-                    </tr>`).join('');
-            }
-        }
-
-        // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', () => {
-            loadConfig();
-            fetchCandidates();
-        });
-        candidateCardsContainer.addEventListener('click', e => e.target.closest('.vote-btn') && handleVoteSubmit(e.target.closest('.vote-btn').dataset.choice, e.target.closest('.vote-btn')));
-        loginForm.addEventListener('submit', handleLogin);
-        refreshBtn.addEventListener('click', fetchResults);
-        navVote.addEventListener('click', () => switchTabView('vote'));
-        navAdmin.addEventListener('click', () => switchTabView('admin'));
-        settingsBtn.addEventListener('click', () => {
-            sheetIdInput.value = APP_CONFIG.sheetId || '';
-            settingsModal.classList.remove('hidden');
-        });
-        cancelSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
-        saveSettingsBtn.addEventListener('click', saveConfig);
-        settingsModal.addEventListener('click', e => e.target === settingsModal && settingsModal.classList.add('hidden'));
-
-                // เพิ่มต่อจากฟังก์ชันที่มีอยู่
-        async function getVoteCount() {
-            try {
-                const response = await fetch(buildUrl('getResults'));
-                if (!response.ok) throw new Error('Network response was not ok');
-                const results = await response.json();
-                
-                // นับจำนวนการโหวตที่ไม่ซ้ำกัน (ใช้ Browser ID)
-                const uniqueVoters = new Set(results.map(r => r.BrowserID)).size;
-                
-                // อัพเดท UI
-                document.getElementById('vote-count').textContent = uniqueVoters;
-                document.getElementById('last-update-time').textContent = new Date().toLocaleTimeString('th-TH');
-                
-                return uniqueVoters;
-            } catch (error) {
-                console.error('Error fetching vote count:', error);
-                document.getElementById('vote-count').textContent = '-';
-                document.getElementById('last-update-time').textContent = 'เกิดข้อผิดพลาด';
-            }
-        }
-
-        // เพิ่ม Event Listener สำหรับปุ่มรีเฟรช
-        document.getElementById('refresh-count').addEventListener('click', async (e) => {
-            const button = e.currentTarget;
-            button.disabled = true;
-            button.classList.add('animate-spin');
-            await getVoteCount();
-            button.disabled = false;
-            button.classList.remove('animate-spin');
-        });
-
-        // เพิ่มการเรียกใช้ getVoteCount ใน DOMContentLoaded
-        document.addEventListener('DOMContentLoaded', () => {
-            loadConfig();
-            fetchCandidates();
-            getVoteCount(); // เพิ่มบรรทัดนี้
-        });
-
-        // อัพเดทฟังก์ชัน handleVoteSubmit เพื่อรีเฟรชจำนวนโหวตหลังลงคะแนน
-        async function handleVoteSubmit(choice, buttonElement) {
-            // ...existing code...
-            try {
-                await fetch(APP_CONFIG.APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+            switchView(); // Initial view check
+            
+            confirmVoteBtn.addEventListener('click', submitVote);
+            
+            // Allow login with Enter key
+            adminPasswordField.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    handleAdminLogin();
+                }
+            });
+            
+            // Close modals when clicking outside the content
+            document.querySelectorAll('.fixed').forEach(modalElement => {
+                 modalElement.addEventListener('click', (e) => {
+                    if (e.target === modalElement) {
+                        closeModal(modalElement.id);
+                    }
                 });
+            });
+        });
 
-                localStorage.setItem(LOCAL_STORAGE_KEY_VOTED, 'true');
-                showStatusMessage(`โหวตให้ "${choice}" สำเร็จ!`, false);
-                disableAllVoteButtons();
-                
-                // เพิ่มบรรทัดนี้เพื่ออัพเดทจำนวนโหวต
-                setTimeout(getVoteCount, 1000); // รอ 1 วินาทีเพื่อให้ข้อมูลอัพเดทใน sheet
-
-            } catch (error) {
-                // ...existing error handling...
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-    loadConfig();
-    fetchCandidates();
-    getVoteCount(); // เรียกครั้งแรก
-    
-    // เพิ่มการอัพเดทอัตโนมัติทุก 3 นาที
-    const AUTO_UPDATE_INTERVAL = 3 * 60 * 1000; // 3 นาทีในมิลลิวินาที
-    let updateTimer = setInterval(async () => {
-        try {
-            await getVoteCount();
-            console.log('Auto-updated vote count');
-        } catch (error) {
-            console.error('Auto-update failed:', error);
-        }
-    }, AUTO_UPDATE_INTERVAL);
-
-    // ล้าง timer เมื่อออกจากหน้า
-    window.addEventListener('beforeunload', () => {
-        if (updateTimer) {
-            clearInterval(updateTimer);
-        }
-    });
-});
-
-        // อัพเดทฟังก์ชัน getVoteCount ให้แสดงเวลาที่เหลือ
-        async function getVoteCount() {
-            try {
-                const response = await fetch(buildUrl('getResults'));
-                if (!response.ok) throw new Error('Network response was not ok');
-                const results = await response.json();
-                
-                // นับจำนวนการโหวตที่ไม่ซ้ำกัน
-                const uniqueVoters = new Set(results.map(r => r.BrowserID)).size;
-                
-                // อัพเดท UI
-                document.getElementById('vote-count').textContent = uniqueVoters;
-                const currentTime = new Date().toLocaleTimeString('th-TH');
-                document.getElementById('last-update-time').textContent = `${currentTime} (อัพเดททุก 3 นาที)`;
-                
-                return uniqueVoters;
-            } catch (error) {
-                console.error('Error fetching vote count:', error);
-                document.getElementById('vote-count').textContent = '-';
-                document.getElementById('last-update-time').textContent = 'เกิดข้อผิดพลาด';
-            }
-        }
     </script>
 </body>
 </html>
