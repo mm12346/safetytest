@@ -64,6 +64,9 @@
             <header class="text-center mb-8">
                 <h1 class="text-3xl sm:text-4xl font-bold text-purple-600">สรุปผลคะแนน (สำหรับผู้ดูแล)</h1>
                 <p class="text-lg mt-2 text-gray-600">ข้อมูลอัปเดตอัตโนมัติทุก 15 วินาที</p>
+                 <div id="admin-total-votes-display" class="mt-4 text-xl font-semibold bg-white p-3 rounded-lg shadow-md inline-block">
+                    กำลังโหลดจำนวนผู้ลงคะแนน...
+                </div>
             </header>
 
             <!-- Admin Content - Stacks on mobile -->
@@ -125,6 +128,22 @@
             </div>
         </div>
     </div>
+    
+    <!-- Modal for Vote Success -->
+    <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center">
+            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <svg class="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">ลงคะแนนสำเร็จ</h2>
+            <p class="mb-6 text-lg">ขอบคุณสำหรับความร่วมมือของคุณ</p>
+            <button onclick="closeModal('success-modal')" class="w-full bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors">
+                ปิด
+            </button>
+        </div>
+    </div>
 
 
     <script>
@@ -146,9 +165,11 @@
         const adminView = document.getElementById('admin-view');
         const candidatesGrid = document.getElementById('candidates-grid');
         const totalVotesDisplay = document.getElementById('total-votes-display');
+        const adminTotalVotesDisplay = document.getElementById('admin-total-votes-display');
         const votedMessage = document.getElementById('voted-message');
         const confirmationModal = document.getElementById('confirmation-modal');
         const adminLoginModal = document.getElementById('admin-login-modal');
+        const successModal = document.getElementById('success-modal');
         const modalText = document.getElementById('modal-text');
         const confirmVoteBtn = document.getElementById('confirm-vote-btn');
         const adminPasswordField = document.getElementById('admin-password');
@@ -241,7 +262,7 @@
         }
 
         /**
-         * Updates the display of total votes.
+         * Updates the display of total votes on voter page.
          */
         async function updateTotalVotes() {
              const data = await fetchData('getresults');
@@ -260,6 +281,13 @@
             if (!data || !data.results) {
                 document.getElementById('results-table-container').innerHTML = '<p class="text-center text-red-500">ไม่สามารถโหลดข้อมูลสรุปผลได้</p>';
                 return;
+            }
+            
+            // Update total votes display on admin page
+            if (data.totalVotes !== undefined) {
+                adminTotalVotesDisplay.innerHTML = `ผู้ลงคะแนนทั้งหมด: <span class="text-purple-700">${data.totalVotes.toLocaleString()}</span> คน`;
+            } else {
+                adminTotalVotesDisplay.innerHTML = `ไม่สามารถโหลดข้อมูลได้`;
             }
 
             // Sort results from highest to lowest votes
@@ -344,6 +372,7 @@
                 });
 
                 closeModal('confirmation-modal');
+                openModal('success-modal'); // Show success popup
                 await updateTotalVotes(); 
 
             } catch (error) {
