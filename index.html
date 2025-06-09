@@ -234,7 +234,7 @@
                 const card = document.createElement('div');
                 card.className = 'candidate-card bg-white p-5 rounded-lg shadow-lg text-center';
                 card.innerHTML = `
-                    <img src="${candidate.imageUrl}" alt="รูปของ ${candidate.name}" class="w-full h-72 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/64748b?text=ไม่มีรูป';">
+                    <img src="${candidate.imageUrl}" alt="รูปของ ${candidate.name}" class="w-full h-56 sm:h-64 lg:h-72 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/64748b?text=ไม่มีรูป';">
                     <h3 class="text-xl font-bold">${candidate.name}</h3>
                     <p class="text-gray-500 mb-4">เบอร์ ${candidate.number}</p>
                     <button class="vote-btn w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors" data-id="${candidate.id}" data-name="${candidate.name}" ${hasVoted ? 'disabled' : ''}>
