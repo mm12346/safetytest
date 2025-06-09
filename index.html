@@ -302,6 +302,7 @@
                     <thead class="bg-gray-200">
                         <tr>
                             <th class="p-3">อันดับ</th>
+                            <th class="p-3">เบอร์</th>
                             <th class="p-3">ชื่อผู้สมัคร</th>
                             <th class="p-3 text-right">คะแนน</th>
                         </tr>
@@ -312,6 +313,7 @@
                 tableHTML += `
                     <tr class="border-b">
                         <td class="p-3 font-semibold">${index + 1}</td>
+                        <td class="p-3 font-semibold text-center">${item.number || '-'}</td>
                         <td class="p-3">${item.name}</td>
                         <td class="p-3 text-right font-semibold">${item.votes.toLocaleString()}</td>
                     </tr>
