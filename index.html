@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ตรวจสอบข้อมูล Check Sheet ออนไลน์</title>
+    <title>ตรวจสอบข้อมูลหลายชีต</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,7 +61,16 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-slate-50">
+<body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-50">
+
+    <div class="mb-6">
+        <button id="refreshButton" class="px-6 py-3 bg-blue-500 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition-all duration-300 flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.172a8.001 8.001 0 0110.428 10.428A1 1 0 0115 17h-.172a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0112 14.172V13a1 1 0 10-2 0v1.172a8.001 8.001 0 01-10.428-10.428A1 1 0 015 3h.172a1 1 0 01.707.293l1.414 1.414A1 1 0 018 5.828V7a1 1 0 102 0V5.828a8.001 8.001 0 0110.428-10.428A1 1 0 0119 2h-.172a1 1 0 01-.707.293l-1.414 1.414A1 1 0 0116 2h.172z" clip-rule="evenodd" />
+            </svg>
+            <span>รีเฟรชข้อมูลทั้งหมด</span>
+        </button>
+    </div>
 
     <div id="app-container" class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Cards will be dynamically inserted here -->
@@ -322,9 +331,22 @@
 
         // Initialize all cards on DOMContentLoaded
         document.addEventListener('DOMContentLoaded', () => {
-            cardConfigurations.forEach((config, index) => {
-                createCard(config, index);
-            });
+            const appContainer = document.getElementById('app-container');
+            const refreshButton = document.getElementById('refreshButton');
+
+            // Function to load all cards
+            const loadAllCards = () => {
+                appContainer.innerHTML = ''; // Clear existing cards before re-rendering
+                cardConfigurations.forEach((config, index) => {
+                    createCard(config, index);
+                });
+            };
+
+            loadAllCards(); // Initial load
+
+            // Add event listener to the refresh button
+            refreshButton.addEventListener('click', loadAllCards);
+
 
             // Register Service Worker
             if ('serviceWorker' in navigator) {
