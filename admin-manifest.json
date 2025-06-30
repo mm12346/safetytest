@@ -2,7 +2,7 @@
   "name": "Admin Dashboard - Online Checker",
   "short_name": "Admin Checker",
   "description": "แดชบอร์ดสำหรับผู้ดูแลระบบเพื่อตรวจสอบข้อมูลผู้ใช้ทั้งหมด",
-  "start_url": "./admin.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f1f5f9",
   "theme_color": "#4338ca",
