@@ -21,60 +21,147 @@
         body { font-family: 'Sarabun', sans-serif; background-color: #f1f5f9; }
         .loader-sm { width: 20px; height: 20px; }
         .loader-lg { width: 48px; height: 48px; }
+        /* Custom scrollbar for sidebar */
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
     </style>
 </head>
 <body class="bg-slate-100">
 
-    <header class="sticky top-0 z-10 w-full bg-white/95 backdrop-blur-sm border-b border-slate-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="py-4 flex flex-col sm:flex-row flex-wrap gap-4 items-center">
-                <div class="flex items-center space-x-2">
-                    <svg class="w-8 h-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm3.75 11.625a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
-                    <h1 class="text-xl font-bold text-slate-800">Admin Dashboard</h1>
-                </div>
-                <div class="flex-grow w-full sm:w-auto">
-                    <input type="date" id="globalCheckDate" class="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 transition">
-                </div>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+        <div class="flex items-center justify-center p-4 border-b border-slate-200">
+             <svg class="w-8 h-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm3.75 11.625a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
+             <h1 class="text-xl font-bold text-slate-800 ml-2">Admin Menu</h1>
+        </div>
+        <div class="p-4">
+            <h2 class="text-lg font-semibold text-slate-700 mb-4">เลือกผู้ใช้งาน</h2>
+            <div id="user-buttons-container" class="flex flex-col space-y-2 sidebar-scroll overflow-y-auto h-[calc(100vh-140px)]">
+                <!-- User buttons will be inserted here -->
             </div>
         </div>
-    </header>
+    </aside>
 
-    <main>
-        <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-            <div class="mb-6">
-                <h2 class="text-2xl font-semibold text-slate-700 mb-4">เลือกผู้ใช้งานเพื่อดูข้อมูล</h2>
-                <div id="user-buttons-container" class="flex flex-wrap gap-3">
-                    <!-- User buttons will be inserted here -->
+    <!-- Sidebar Overlay for mobile -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
+
+    <!-- Main Content -->
+    <div class="lg:ml-64 transition-all duration-300 ease-in-out">
+        <header class="sticky top-0 z-20 w-full bg-white/95 backdrop-blur-sm border-b border-slate-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="py-4 flex items-center justify-between gap-4">
+                    <!-- Hamburger button for mobile -->
+                    <button id="sidebar-toggle" class="lg:hidden text-slate-500 hover:text-slate-700">
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </button>
+                    
+                    <div class="flex-grow flex items-center justify-end gap-4">
+                        <input type="date" id="globalCheckDate" class="w-full max-w-xs px-4 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 transition">
+                        <button id="refresh-button" title="รีเฟรชข้อมูล" class="p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-700 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                <path d="M21 3v5h-5"></path>
+                                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                <path d="M3 21v-5h5"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
+        </header>
 
-            <div id="user-info" class="hidden">
-                 <h3 class="text-2xl font-bold text-slate-800 mb-4" id="current-user-header"></h3>
-                 <div id="app-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Cards will be inserted here -->
+        <main>
+            <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+                <div id="user-info" class="hidden">
+                     <h3 class="text-2xl font-bold text-slate-800 mb-4" id="current-user-header"></h3>
+                     <div id="app-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <!-- Cards will be inserted here -->
+                    </div>
+                </div>
+                 <div id="welcome-message" class="text-center py-12">
+                    <svg class="w-16 h-16 mx-auto text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+                    <h2 class="mt-4 text-2xl font-semibold text-slate-700">ยินดีต้อนรับ</h2>
+                    <p class="mt-2 text-slate-500">กรุณาเลือกผู้ใช้งานจากเมนูด้านข้างเพื่อดูข้อมูล</p>
                 </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzbnI6LiDVZsC4-1iMuV9CtMeN320QbHL6KxR9tl8CK58TAmwq8KB1rPTFwWzljMinm/exec'; 
+        // --- Configuration ---
+        const SCRIPT_URLS = [
+            'https://script.google.com/macros/s/AKfycbzbnI6LiDVZsC4-1iMuV9CtMeN320QbHL6KxR9tl8CK58TAmwq8KB1rPTFwWzljMinm/exec',
+            // เพิ่ม URL ของ Apps Script บัญชีอื่นๆ ที่นี่
+            // 'https://script.google.com/macros/s/YOUR_SECOND_SCRIPT_ID/exec',
+            // 'https://script.google.com/macros/s/YOUR_THIRD_SCRIPT_ID/exec'
+        ];
         let cardConfigurations = [];
         const dataCache = {};
 
         // --- DOM Elements ---
         const userButtonsContainer = document.getElementById('user-buttons-container');
         const userInfo = document.getElementById('user-info');
+        const welcomeMessage = document.getElementById('welcome-message');
         const currentUserHeader = document.getElementById('current-user-header');
         const appContainer = document.getElementById('app-container');
         const globalCheckDateInput = document.getElementById('globalCheckDate');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        const refreshButton = document.getElementById('refresh-button');
+
+        // --- Sidebar Logic ---
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            sidebarOverlay.classList.remove('hidden');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            sidebarOverlay.classList.add('hidden');
+        }
+
+        sidebarToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (sidebar.classList.contains('-translate-x-full')) {
+                openSidebar();
+            } else {
+                closeSidebar();
+            }
+        });
+
+        sidebarOverlay.addEventListener('click', closeSidebar);
+
 
         // --- Utility ---
+        let currentUrlIndex = 0;
+        function getScriptUrl() {
+            // ใช้ Round-robin เพื่อสลับ URL ที่จะใช้
+            const url = SCRIPT_URLS[currentUrlIndex];
+            currentUrlIndex = (currentUrlIndex + 1) % SCRIPT_URLS.length;
+            return url;
+        }
+
         async function apiCall(action, payload = {}) {
             const isGet = action.startsWith('load') || action.startsWith('get');
             const options = { method: isGet ? 'GET' : 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' } };
-            const url = new URL(SCRIPT_URL);
+            const scriptUrl = getScriptUrl(); // รับ URL แบบสลับ
+            const url = new URL(scriptUrl);
+
             if (isGet) {
                 Object.entries({ action, ...payload }).forEach(([key, value]) => url.searchParams.append(key, value));
             } else {
@@ -88,7 +175,7 @@
         }
 
         async function loadAllUsers() {
-            userButtonsContainer.innerHTML = `<div class="loader-sm animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500"></div>`;
+            userButtonsContainer.innerHTML = `<div class="loader-sm animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500 mx-auto"></div>`;
             try {
                 const result = await apiCall('getAllUsers');
                 const users = result.users || [];
@@ -96,11 +183,14 @@
                 users.forEach(user => {
                     const button = document.createElement('button');
                     button.textContent = user;
-                    button.className = 'px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-indigo-50 focus:ring-2 focus:ring-indigo-500 transition';
+                    button.className = 'w-full text-left px-4 py-2 bg-white border border-transparent rounded-lg hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition';
                     button.onclick = () => {
-                        document.querySelectorAll('#user-buttons-container button').forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white'));
-                        button.classList.add('bg-indigo-600', 'text-white');
+                        document.querySelectorAll('#user-buttons-container button').forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white', 'font-semibold', 'shadow'));
+                        button.classList.add('bg-indigo-600', 'text-white', 'font-semibold', 'shadow');
                         displayUserCards(user);
+                        if (window.innerWidth < 1024) {
+                            closeSidebar();
+                        }
                     };
                     userButtonsContainer.appendChild(button);
                 });
@@ -111,6 +201,7 @@
         
         async function displayUserCards(username) {
             userInfo.classList.remove('hidden');
+            welcomeMessage.classList.add('hidden');
             currentUserHeader.textContent = `ข้อมูลของ: ${username}`;
             appContainer.innerHTML = `<div class="loader-lg col-span-full mx-auto animate-spin rounded-full border-4 border-slate-200 border-t-indigo-500"></div>`;
             try {
@@ -143,6 +234,25 @@
         function processData(dataRows, resultsEl, targetCount) {
              const dateString = new Date(globalCheckDateInput.value).toLocaleDateString('th-TH', { dateStyle: 'long' });
              renderResults(resultsEl, dataRows, dateString, targetCount);
+        }
+
+        // --- Refresh Logic ---
+        function refreshCurrentView() {
+            const selectedButton = document.querySelector('#user-buttons-container button.bg-indigo-600');
+            if (selectedButton) {
+                const username = selectedButton.textContent;
+                Object.keys(dataCache).forEach(key => delete dataCache[key]);
+                console.log('Cache cleared for refresh.');
+                const refreshIcon = refreshButton.querySelector('svg');
+                refreshIcon.classList.add('animate-spin');
+                refreshButton.disabled = true;
+                displayUserCards(username).finally(() => {
+                    refreshIcon.classList.remove('animate-spin');
+                    refreshButton.disabled = false;
+                });
+            } else {
+                alert('กรุณาเลือกผู้ใช้งานก่อนรีเฟรช');
+            }
         }
 
         // --- UI Rendering ---
@@ -191,7 +301,6 @@
         
         // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Register Service Worker for PWA
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('./admin-sw.js')
@@ -209,6 +318,8 @@
                     displayUserCards(selectedButton.textContent);
                 }
             });
+
+            refreshButton.addEventListener('click', refreshCurrentView);
         });
     </script>
 </body>
