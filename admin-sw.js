@@ -3,7 +3,7 @@ const CACHE_NAME = 'admin-checker-cache-v3';
 
 // รายการไฟล์ที่ต้องการให้ถูกแคชไว้
 const urlsToCache = [
-  './admin.html',
+  './index.html',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap'
 ];
