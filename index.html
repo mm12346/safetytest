@@ -136,13 +136,13 @@
         function openSidebar() {
             sidebar.classList.remove('-translate-x-full');
             sidebarOverlay.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden'); // Prevent main content from scrolling
+            document.body.classList.add('overflow-hidden');
         }
 
         function closeSidebar() {
             sidebar.classList.add('-translate-x-full');
             sidebarOverlay.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden'); // Allow main content to scroll again
+            document.body.classList.remove('overflow-hidden');
         }
 
         sidebarToggle.addEventListener('click', (e) => {
@@ -197,7 +197,6 @@
                         document.querySelectorAll('#user-buttons-container button').forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white', 'font-semibold', 'shadow'));
                         button.classList.add('bg-indigo-600', 'text-white', 'font-semibold', 'shadow');
                         
-                        // Save the selected user to localStorage
                         localStorage.setItem('lastSelectedUser', user);
 
                         displayUserCards(user);
@@ -228,23 +227,24 @@
         }
 
         async function checkSheetData(config, dateValue, resultsEl) {
-            // Check for "N/A" sheetId
+            // UPDATED: Handle N/A case with a specific disabled (gray) message
             if (config.sheetId === 'N/A') {
-                resultsEl.innerHTML = `<div class="flex flex-col items-center justify-center text-center text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 mb-2 text-slate-400"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><p class="font-semibold text-slate-700">ไม่มีใช้งานในสาขา</p></div>`;
-                return;
+                return renderDisabledMessage(resultsEl, 'ไม่มีใช้งานในสาขา', 'การ์ดนี้ถูกปิดการใช้งาน');
             }
-
-            // --- MODIFIED: Check for blank or unset sheetId and use robust gear icon ---
+            // UPDATED: Handle empty sheetId with a specific info (amber) message
             if (!config.sheetId) {
-                resultsEl.innerHTML = `<div class="flex flex-col items-center justify-center text-center text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-gear-fill w-12 h-12 mb-2 text-slate-400" viewBox="0 0 16 16"><path d="m11.001,13h3.535l8.732-8.731c.975-.975.975-2.562,0-3.536-.977-.976-2.563-.975-3.536,0l-8.731,8.732v3.535ZM20.44,1.439c.586-.585,1.536-.584,2.122,0,.585.585.585,1.537,0,2.122l-1.249,1.249-2.122-2.122,1.249-1.249Zm-8.438,8.439l6.483-6.483,2.122,2.122-6.483,6.483h-2.121v-2.121Zm8.75,4.204l2.924,1.655-2.464,4.351-2.927-1.657c-1.064,1.041-2.359,1.796-3.783,2.207v3.361h-5v-3.361c-1.425-.411-2.72-1.167-3.784-2.207l-2.926,1.657L.327,15.738l2.924-1.656c-.165-.692-.249-1.392-.249-2.082s.084-1.39.249-2.081l-2.924-1.656L2.792,3.912l2.926,1.657c1.064-1.041,2.36-1.796,3.784-2.207V0h5v3.137s-1,1-1,1V1s-3,0-3,0v3.141l-.383.093c-1.513.365-2.878,1.161-3.949,2.302l-.269.287-2.732-1.547-1.479,2.61,2.729,1.546-.106.378c-.207.728-.312,1.465-.312,2.19s.104,1.463.312,2.191l.106.378-2.729,1.546,1.479,2.61,2.732-1.548.27.287c1.069,1.142,2.436,1.938,3.948,2.303l.383.093v3.14h3v-3.14l.383-.093c1.512-.364,2.877-1.161,3.947-2.303l.27-.287,2.733,1.548,1.478-2.61-2.73-1.546.108-.378c.207-.727.311-1.464.311-2.19,0,0,0,0,0-.001,0-.49-.065-.984-.16-1.477l.842-.842.067.237c.166.691.25,1.39.25,2.082h0c0,.691-.084,1.391-.25,2.083Zm-9.447-7.012l-2.303,2.303.003.004c-.617.704-1.003,1.615-1.003,2.622,0,2.206,1.794,4,4,4,1.197,0,2.26-.539,2.994-1.374h.006s1.93-1.929,1.93-1.929c-.343,2.425-2.411,4.303-4.93,4.303-2.757,0-5-2.243-5-5,0-2.518,1.878-4.587,4.303-4.93Z"/>
-</svg><p class="font-semibold text-slate-700">ยังไม่ได้ตั้งค่า Sheet ID</p></div>`;
+                return renderInfoMessage(resultsEl, 'ยังไม่ได้ตั้งค่า Sheet ID', 'กรุณากำหนดค่าในหน้าตั้งค่า');
+            }
+            // UPDATED: Handle empty sheetName with a specific info (amber) message
+            if (!config.sheetName) {
+                return renderInfoMessage(resultsEl, 'ยังไม่ได้ตั้งค่า Sheet Name', 'กรุณากำหนดค่าในหน้าตั้งค่า');
+            }
+
+            if (!dateValue) {
+                resultsEl.innerHTML = '<p class="text-slate-500">กรุณาเลือกวันที่</p>';
                 return;
             }
-            // --- END MODIFICATION ---
 
-            if (!config.sheetName) return renderError(resultsEl, `กรุณาตั้งค่า Sheet Name`);
-            if (!dateValue) { resultsEl.innerHTML = '<p class="text-slate-500">กรุณาเลือกวันที่</p>'; return; }
-            
             resultsEl.innerHTML = `<div class="loader-sm mx-auto animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500"></div>`;
             const cacheKey = `${config.sheetId}-${dateValue}`;
             if (dataCache[cacheKey]) {
@@ -318,13 +318,23 @@
                     const needed = targetCount - uniqueNumbers.size;
                     statusBlock = `<div class="bg-amber-100/50 border border-amber-200/80 text-amber-800 p-4 rounded-xl flex items-center space-x-4"><div class="flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-10 h-10 text-amber-500"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg></div><div class="min-w-0"><p class="font-bold text-lg">ยังไม่ครบ (${uniqueNumbers.size}/${targetCount})</p><p class="text-sm break-words">ขาดอีก ${needed} หมายเลขสำหรับวันที่ ${date}</p></div></div>`;
                 }
-                detailsBlock = `<div class="space-y-4 pt-4 text-sm mt-4 border-t border-slate-200"><div class="flex items-start space-x-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0 text-slate-400 mt-0.5"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.095a1.23 1.23 0 00.41-1.412A9.995 9.995 0 0010 12c-2.31 0-4.438.784-6.131 2.095z" /></svg><div><p class="font-semibold text-slate-600">ผู้ลงข้อมูล:</p><p class="text-slate-800 break-words">${uniqueUsers.size > 0 ? [...uniqueUsers].join(', ') : 'ไม่พบ'}</p></div></div><div class="flex items-start space-x-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0 text-slate-400 mt-0.5"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5z" clip-rule="evenodd" /></svg><div><p class="font-semibold text-slate-600">หมายเลขที่ตรวจแล้ว (${uniqueNumbers.size} หมายเลข):</p><p class="text-slate-800 break-words">${uniqueNumbers.size > 0 ? [...uniqueUsers].join(', ') : 'ไม่พบ'}</p></div></div></div>`;
+                detailsBlock = `<div class="space-y-4 pt-4 text-sm mt-4 border-t border-slate-200"><div class="flex items-start space-x-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0 text-slate-400 mt-0.5"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.095a1.23 1.23 0 00.41-1.412A9.995 9.995 0 0010 12c-2.31 0-4.438.784-6.131 2.095z" /></svg><div><p class="font-semibold text-slate-600">ผู้ลงข้อมูล:</p><p class="text-slate-800 break-words">${uniqueUsers.size > 0 ? [...uniqueUsers].join(', ') : 'ไม่พบ'}</p></div></div><div class="flex items-start space-x-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0 text-slate-400 mt-0.5"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5z" clip-rule="evenodd" /></svg><div><p class="font-semibold text-slate-600">หมายเลขที่ตรวจแล้ว (${uniqueNumbers.size} หมายเลข):</p><p class="text-slate-800 break-words">${uniqueNumbers.size > 0 ? [...uniqueNumbers].join(', ') : 'ไม่พบ'}</p></div></div></div>`;
             }
             resultsEl.innerHTML = `<div class="w-full">${statusBlock}${detailsBlock}</div>`;
         }
         
         function renderError(resultsEl, msg) {
             resultsEl.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-xl flex flex-col items-center justify-center text-center"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 mb-2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg><p class="font-bold">เกิดข้อผิดพลาด</p><p class="text-sm">${msg}</p></div>`;
+        }
+
+        // NEW: Function for disabled messages (gray color)
+        function renderDisabledMessage(resultsEl, title, msg) {
+            resultsEl.innerHTML = `<div class="bg-slate-50 border border-slate-200 text-slate-800 p-4 rounded-xl flex flex-col items-center justify-center text-center"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 mb-2 text-slate-400"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><p class="font-bold">${title}</p><p class="text-sm text-slate-600">${msg}</p></div>`;
+        }
+        
+        // UPDATED: Function for informational messages (now amber/orange color)
+        function renderInfoMessage(resultsEl, title, msg) {
+            resultsEl.innerHTML = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex flex-col items-center justify-center text-center"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 mb-2 text-amber-400"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg><p class="font-bold">${title}</p><p class="text-sm text-amber-700">${msg}</p></div>`;
         }
         
         // --- Initial Load ---
@@ -338,14 +348,13 @@
             }
 
             globalCheckDateInput.value = new Date().toISOString().split('T')[0];
-            await loadAllUsers(); // Wait for users to be loaded
+            await loadAllUsers();
 
-            // Check for and load the last selected user
             const lastSelectedUser = localStorage.getItem('lastSelectedUser');
             if (lastSelectedUser) {
                 const userButton = [...document.querySelectorAll('#user-buttons-container button')].find(btn => btn.textContent === lastSelectedUser);
                 if (userButton) {
-                    userButton.click(); // Simulate a click to select the user
+                    userButton.click();
                 }
             }
             
