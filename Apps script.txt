@@ -1,0 +1,515 @@
+/**
+ * @fileoverview Google Apps Script Backend for FixFlow Application.
+ * Handles API requests from the frontend to interact with Google Sheets
+ * and triggers push notifications via Line Messaging API directly.
+ *
+ * @version 2.6
+ * @author Gemini & User
+ */
+
+// =================================================================================
+// CONFIGURATION - การตั้งค่า
+// =================================================================================
+const CONFIG = {
+  users: {
+    sheetName: "Users",
+    columns: {
+      id: "Employee ID",
+      name: "Full Name"
+    }
+  },
+  requests: {
+    sheetName: "Requests",
+    columns: {
+      id: "ID",
+      date: "Date",
+      lastUpdated: "Last Updated", 
+      problem: "Problem",
+      category: "Category",
+      location: "Location",
+      details: "Details",
+      beforeImageUrl: "Before Image URL",
+      requesterId: "Requester ID",
+      requesterName: "Requester Name",
+      status: "Status",
+      afterImageUrl: "After Image URL",
+      adminComment: "Admin Comment",
+      updatedBy: "Updated By",
+      // NEW: เพิ่มคอลัมน์สำหรับเก็บคะแนนและความคิดเห็น
+      rating: "Rating",
+      ratingComment: "Rating Comment"
+    }
+  },
+  // NEW: เพิ่มการตั้งค่าสำหรับชีท Admin
+  admin: {
+    sheetName: "Admin",
+    columns: {
+      id: "Admin ID"
+    }
+  },
+  notification: {
+      // Line Messaging API URL สำหรับ Push Message
+      lineMessagingApiUrl: "https://api.line.me/v2/bot/message/push",
+      // Channel Access Token ของ Line Messaging API Channel ของคุณ
+      // สำคัญ: ควรเก็บโทเค็นนี้อย่างปลอดภัย และไม่ควรเปิดเผยในโค้ดสาธารณะ
+      lineChannelAccessToken: "15x3TXIzNwhLIrmzTbDoADj0Mjqc2IF+NC2toji6ubjlKvcQmrrVPnaxXC8C6OJvF17tHf2/O8fjkyz3c4rwzUg0geZd550RYR6nSSTBc3U4NRaisQUbInyNJKkGKGwQcoaLk7B5IsSaJ5tVT32bdgdB04t89/1O/w1cDnyilFU=", // <--- *** ใส่ Channel Access Token ของคุณที่นี่ ***
+      // Group ID ของกลุ่ม Line ที่ต้องการให้แจ้งเตือนเข้า
+      // คุณต้องเชิญบอทเข้ากลุ่มก่อน แล้วหา Group ID จาก Webhook event หรือ Line Developers Console
+      adminGroupId: "Cf7408aa0f7d7c1f8e565efdaa1bc64b5" // <--- *** ใส่ Group ID ของคุณที่นี่ ***
+  }
+  // ADMIN_IDS ถูกย้ายไปจัดการในชีท "Admin" แทน
+};
+
+
+// =================================================================================
+// MAIN API ENTRY POINT - จุดเริ่มต้นการทำงานของ API
+// =================================================================================
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    const action = payload.action;
+
+    switch (action) {
+      case 'login':
+        return handleLogin(payload);
+      case 'registerUser':
+        return handleRegisterUser(payload);
+      case 'getRequests':
+        return handleGetRequests();
+      case 'createRequest':
+        return handleCreateRequest(payload);
+      case 'updateStatus':
+        return handleUpdateStatus(payload);
+      case 'addAfterImage':
+        return handleAddAfterImage(payload);
+      case 'deleteRequest':
+        return handleDeleteRequest(payload);
+      // NEW: เพิ่ม case สำหรับการอัปเดตคะแนน
+      case 'updateRating':
+        return handleUpdateRating(payload);
+      default:
+        return jsonError('Invalid action specified.');
+    }
+  } catch (error) {
+    Logger.log(error.stack);
+    return jsonError(`An unexpected error occurred: ${error.message}`);
+  }
+}
+
+// =================================================================================
+// ACTION HANDLERS - ฟังก์ชันจัดการแต่ละ Action
+// =================================================================================
+
+function handleRegisterUser(payload) {
+    const { sheet, headers } = getSheetAndHeaders(CONFIG.users.sheetName);
+    const { name, employeeId } = payload;
+
+    if (!name || !employeeId) {
+        return jsonError('กรุณากรอกข้อมูลให้ครบถ้วน');
+    }
+
+    const idColIndex = headers[CONFIG.users.columns.id];
+    const existingIds = sheet.getRange(2, idColIndex + 1, sheet.getLastRow(), 1).getValues().flat().map(String);
+
+    if (existingIds.includes(String(employeeId))) {
+        return jsonError('รหัสพนักงานนี้ถูกใช้งานแล้ว');
+    }
+
+    const newRow = [];
+    newRow[idColIndex] = employeeId;
+    newRow[headers[CONFIG.users.columns.name]] = name;
+    
+    sheet.appendRow(newRow);
+
+    return jsonResponse({ success: true, id: employeeId, name: name });
+}
+
+
+function handleLogin(payload) {
+  const { sheet, headers } = getSheetAndHeaders(CONFIG.users.sheetName);
+  const idCol = headers[CONFIG.users.columns.id];
+  const nameCol = headers[CONFIG.users.columns.name];
+  const values = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][idCol]) === String(payload.employeeId)) {
+      const userData = {
+        id: values[i][idCol],
+        name: values[i][nameCol],
+        // ตรวจสอบว่าเป็น Admin โดยเรียกใช้ฟังก์ชัน checkAdmin
+        isAdmin: checkAdmin(String(values[i][idCol])) 
+      };
+      return jsonResponse(userData);
+    }
+  }
+  return jsonResponse(null);
+}
+
+function handleGetRequests() {
+  const { sheet, headers } = getSheetAndHeaders(CONFIG.requests.sheetName);
+  const data = sheet.getDataRange().getValues();
+  data.shift(); // Remove header row
+
+  const requests = data.map(row => {
+    let requestObj = {};
+    for (const colName in headers) {
+      const configKey = Object.keys(CONFIG.requests.columns).find(key => CONFIG.requests.columns[key] === colName);
+      if (configKey) {
+        if ((configKey === 'date' || configKey === 'lastUpdated') && row[headers[colName]] instanceof Date) {
+            requestObj[configKey] = row[headers[colName]].toISOString();
+        } else {
+            requestObj[configKey] = row[headers[colName]];
+        }
+      }
+    }
+    return requestObj;
+  }).filter(r => r.id); 
+
+  return jsonResponse(requests);
+}
+
+function handleCreateRequest(payload) {
+  const { sheet, headers } = getSheetAndHeaders(CONFIG.requests.sheetName);
+  const newData = payload.data;
+  const newRow = [];
+  const now = new Date();
+  
+  const id = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+  newRow[headers[CONFIG.requests.columns.id]] = id;
+  newRow[headers[CONFIG.requests.columns.date]] = now;
+  newRow[headers[CONFIG.requests.columns.lastUpdated]] = now;
+  newRow[headers[CONFIG.requests.columns.status]] = "รอดำเนินการ";
+  newRow[headers[CONFIG.requests.columns.problem]] = newData.problem;
+  newRow[headers[CONFIG.requests.columns.category]] = newData.category;
+  newRow[headers[CONFIG.requests.columns.location]] = newData.location;
+  newRow[headers[CONFIG.requests.columns.details]] = newData.details;
+  newRow[headers[CONFIG.requests.columns.beforeImageUrl]] = newData.beforeImageUrl;
+  newRow[headers[CONFIG.requests.columns.requesterId]] = newData.requesterId;
+  newRow[headers[CONFIG.requests.columns.requesterName]] = newData.requesterName;
+  newRow[headers[CONFIG.requests.columns.afterImageUrl]] = "";
+  newRow[headers[CONFIG.requests.columns.adminComment]] = "";
+  newRow[headers[CONFIG.requests.columns.updatedBy]] = newData.requesterName; // Set initial updater
+
+  sheet.appendRow(newRow);
+
+  // Trigger notification for new request
+  triggerNewRequestNotification({
+    id: id,
+    problem: newData.problem,
+    date: now,
+    requesterName: newData.requesterName,
+    location: newData.location,
+    details: newData.details || '-'
+  });
+
+  return jsonResponse({ success: true, id: id });
+}
+
+
+function handleUpdateStatus(payload) {
+    const { id, status, comment, updaterName } = payload;
+    const { sheet, headers } = getSheetAndHeaders(CONFIG.requests.sheetName);
+    
+    const rowNumber = findRowById(sheet, headers, id);
+
+    if (rowNumber === -1) {
+        return jsonError(`Request with ID '${id}' not found.`);
+    }
+    
+    // Get the current row data before updating to retrieve original request details
+    const rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const originalRequest = {};
+    for (const key in CONFIG.requests.columns) {
+        const colName = CONFIG.requests.columns[key];
+        const colIndex = headers[colName];
+        if (colIndex !== undefined) {
+            originalRequest[key] = rowData[colIndex];
+        }
+    }
+
+    // Update sheet ranges
+    sheet.getRange(rowNumber, headers[CONFIG.requests.columns.status] + 1).setValue(status);
+    sheet.getRange(rowNumber, headers[CONFIG.requests.columns.lastUpdated] + 1).setValue(new Date());
+    sheet.getRange(rowNumber, headers[CONFIG.requests.columns.updatedBy] + 1).setValue(updaterName || "");
+
+    if (status === 'รออะไหล่') {
+        sheet.getRange(rowNumber, headers[CONFIG.requests.columns.adminComment] + 1).setValue(comment || "");
+    } else {
+        sheet.getRange(rowNumber, headers[CONFIG.requests.columns.adminComment] + 1).setValue(""); 
+    }
+
+    // Trigger notification when status is updated with detailed information
+    triggerStatusUpdateNotification({
+      id: id,
+      newStatus: status,
+      updaterName: updaterName || 'ไม่ระบุ',
+      problem: originalRequest.problem,
+      location: originalRequest.location,
+      requesterName: originalRequest.requesterName,
+      date: originalRequest.date, // Original request date
+      comment: comment // Specific comment for status update (e.g., reason for 'รออะไหล่')
+    });
+
+    return jsonResponse({ success: true, id: id });
+}
+
+
+function handleAddAfterImage(payload) {
+    const { id, imageUrl, updaterName } = payload;
+    const { sheet, headers } = getSheetAndHeaders(CONFIG.requests.sheetName);
+    const rowNumber = findRowById(sheet, headers, id);
+
+    if (rowNumber === -1) {
+        return jsonError(`Request with ID '${id}' not found.`);
+    }
+
+    const afterImageColIndex = headers[CONFIG.requests.columns.afterImageUrl] + 1;
+    const lastUpdatedColIndex = headers[CONFIG.requests.columns.lastUpdated] + 1;
+    const updatedByColIndex = headers[CONFIG.requests.columns.updatedBy] + 1;
+
+    sheet.getRange(rowNumber, afterImageColIndex).setValue(imageUrl);
+    sheet.getRange(rowNumber, lastUpdatedColIndex).setValue(new Date());
+    sheet.getRange(rowNumber, updatedByColIndex).setValue(updaterName || "");
+    
+    return jsonResponse({ success: true, id: id });
+}
+
+function handleDeleteRequest(payload) {
+    const { id, currentUserId } = payload; // รับ currentUserId จาก Frontend
+    const { sheet, headers } = getSheetAndHeaders(CONFIG.requests.sheetName);
+    const rowNumber = findRowById(sheet, headers, id);
+
+    if (rowNumber === -1) {
+        return jsonError(`Request with ID '${id}' to delete was not found.`);
+    }
+    
+    const requesterIdColIndex = headers[CONFIG.requests.columns.requesterId];
+    const sheetRequesterId = sheet.getRange(rowNumber, requesterIdColIndex + 1).getValue();
+
+    // ตรวจสอบสิทธิ์: ต้องเป็น Admin หรือเป็นผู้แจ้งของรายการนั้นๆ
+    const isAdmin = checkAdmin(String(currentUserId)); // ใช้ checkAdmin function
+    if (!isAdmin && String(sheetRequesterId) !== String(currentUserId)) {
+        return jsonError('คุณไม่มีสิทธิ์ลบรายการแจ้งซ่อมนี้');
+    }
+
+    sheet.deleteRow(rowNumber);
+    
+    return jsonResponse({ success: true, id: id });
+}
+
+// NEW: ฟังก์ชันสำหรับบันทึกคะแนน
+function handleUpdateRating(payload) {
+    const { id, rating, comment } = payload;
+    if (!id || !rating) {
+        return jsonError("จำเป็นต้องมี ID และคะแนนของใบแจ้งซ่อม");
+    }
+
+    const { sheet, headers } = getSheetAndHeaders(CONFIG.requests.sheetName);
+    const rowNumber = findRowById(sheet, headers, id);
+
+    if (rowNumber === -1) {
+        return jsonError(`ไม่พบใบแจ้งซ่อม ID '${id}'`);
+    }
+
+    const ratingColIndex = headers[CONFIG.requests.columns.rating] + 1;
+    const commentColIndex = headers[CONFIG.requests.columns.ratingComment] + 1;
+    const lastUpdatedColIndex = headers[CONFIG.requests.columns.lastUpdated] + 1;
+
+    sheet.getRange(rowNumber, ratingColIndex).setValue(rating);
+    sheet.getRange(rowNumber, commentColIndex).setValue(comment || "");
+    sheet.getRange(rowNumber, lastUpdatedColIndex).setValue(new Date());
+
+    return jsonResponse({ success: true, id: id });
+}
+
+
+// =================================================================================
+// NOTIFICATION HELPERS - ฟังก์ชันสำหรับส่งการแจ้งเตือนผ่าน Line Messaging API
+// =================================================================================
+
+/**
+ * Generic function to send messages via Line Messaging API.
+ * @param {string} messageText The text message to send.
+ */
+function triggerLineNotification(messageText) {
+    // ตรวจสอบว่ามีการตั้งค่า Line Messaging API URL, Token และ Group ID หรือไม่
+    if (!CONFIG.notification.lineMessagingApiUrl || !CONFIG.notification.lineChannelAccessToken || !CONFIG.notification.adminGroupId) {
+        Logger.log("Line Messaging API URL, Channel Access Token, or Admin Group ID is not set. Skipping notification.");
+        return;
+    }
+
+    const payload = {
+        to: CONFIG.notification.adminGroupId,
+        messages: [
+            {
+                type: "text",
+                text: messageText
+            }
+        ]
+    };
+
+    const options = {
+        'method': 'post',
+        'contentType': 'application/json',
+        'headers': {
+            'Authorization': 'Bearer ' + CONFIG.notification.lineChannelAccessToken,
+        },
+        'payload': JSON.stringify(payload),
+        'muteHttpExceptions': true // เพื่อจับข้อผิดพลาด HTTP ด้วย try-catch
+    };
+
+    try {
+        const response = UrlFetchApp.fetch(CONFIG.notification.lineMessagingApiUrl, options);
+        Logger.log(`Line Messaging API Response: ${response.getResponseCode()} - ${response.getContentText()}`);
+    } catch (e) {
+        Logger.log(`Error sending Line Messaging API notification: ${e.toString()}`);
+    }
+}
+
+/**
+ * Triggers a notification for a new repair request.
+ * @param {object} notificationData - Data for the new request.
+ *
+ */
+function triggerNewRequestNotification(notificationData) {
+    const { id, problem, date, requesterName, location, details } = notificationData;
+
+    const formattedDate = date instanceof Date ? date.toLocaleDateString('th-TH') : new Date(date).toLocaleDateString('th-TH');
+    const notificationDateTime = new Date().toLocaleString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour:'2-digit', minute:'2-digit' });
+
+    let messageText = `✨ มีเรื่องแจ้งซ่อมใหม่ ✨\n`;
+    messageText += `🛠️ เรื่อง: ${problem}\n`;
+    messageText += `🆔 ID: ${id}\n`;
+    messageText += `📅 วันที่แจ้ง: ${formattedDate}\n`;
+    messageText += `🧑 ผู้แจ้ง: ${requesterName}\n`;
+    messageText += `📍 สถานที่: ${location}\n`;
+    messageText += `📝 รายละเอียด: ${details || '-'}\n`;
+    messageText += `(แจ้งเตือนเมื่อ: ${notificationDateTime})`;
+
+    triggerLineNotification(messageText);
+}
+
+/**
+ * Triggers a notification for a status update on a repair request.
+ * @param {object} notificationData - Data for the status update.
+ *
+ */
+function triggerStatusUpdateNotification(notificationData) {
+    const { id, newStatus, updaterName, problem, location, requesterName, date, comment } = notificationData;
+
+    const formattedRequestDate = date instanceof Date ? date.toLocaleDateString('th-TH') : new Date(date).toLocaleDateString('th-TH');
+    const updatedDateTime = new Date().toLocaleString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour:'2-digit', minute:'2-digit' });
+
+    let messageText = `🔄 อัปเดตสถานะแจ้งซ่อม 🔄\n`;
+    messageText += `⏳ สถานะใหม่: ${newStatus}\n`;
+    messageText += `🗓️ วันที่อัปเดต: ${updatedDateTime}\n`;
+    messageText += `👨‍🔧 โดย: ${updaterName}\n`;
+    messageText += `🛠️ เรื่อง: ${problem}\n`;
+    messageText += `🆔 ID: ${id}\n`;
+    messageText += `📍 สถานที่: ${location}\n`;
+    messageText += `🧑 ผู้แจ้ง: ${requesterName}\n`;
+    messageText += `📅 วันที่แจ้ง: ${formattedRequestDate}`;
+    if (comment) {
+        messageText += `\n📃 เหตุผล: ${comment}`;
+    }
+
+    triggerLineNotification(messageText);
+}
+
+
+// =================================================================================
+// UTILITY FUNCTIONS - ฟังก์ชันช่วยเหลืออื่นๆ
+// =================================================================================
+
+/**
+ * Finds the row number of a record by its ID in a given sheet.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to search in.
+ * @param {Object} headers - The header map for the sheet.
+ * @param {string} id - The ID to search for.
+ * @return {number} The row number (1-indexed) or -1 if not found.
+ */
+function findRowById(sheet, headers, id) {
+    const idColIndex = headers[CONFIG.requests.columns.id];
+    if (idColIndex === undefined) return -1;
+    // Get all IDs from the ID column, starting from the second row
+    const ids = sheet.getRange(2, idColIndex + 1, sheet.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]) === String(id)) {
+            return i + 2; // +2 because data starts from row 2 and array is 0-indexed
+        }
+    }
+    return -1;
+}
+
+/**
+ * Retrieves a sheet by name and its header map.
+ * If necessary columns are missing, they will be created.
+ * @param {string} sheetName - The name of the sheet.
+ * @return {Object} An object containing the sheet and its headers map.
+ */
+function getSheetAndHeaders(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error(`Sheet with name "${sheetName}" was not found.`);
+
+  const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headers = {};
+  headerRow.forEach((header, index) => {
+    if (header) headers[header] = index;
+  });
+  
+  let config;
+  if (sheetName === CONFIG.users.sheetName) {
+      config = CONFIG.users;
+  } else if (sheetName === CONFIG.requests.sheetName) {
+      config = CONFIG.requests;
+  } else if (sheetName === CONFIG.admin.sheetName) { // Handle Admin sheet
+      config = CONFIG.admin;
+  } else {
+      throw new Error(`Configuration for sheet "${sheetName}" not found.`);
+  }
+
+  // ตรวจสอบว่ามีคอลัมน์ที่จำเป็นทั้งหมดหรือไม่ ถ้าไม่มี ให้สร้างขึ้นมา
+  for(const colName of Object.values(config.columns)){
+      if(headers[colName] === undefined){
+          const newColIndex = Object.keys(headers).length + 1;
+          sheet.getRange(1, newColIndex).setValue(colName);
+          headers[colName] = newColIndex - 1;
+          Logger.log(`Created missing column "${colName}" in sheet "${sheetName}".`);
+      }
+  }
+  return { sheet, headers };
+}
+
+/**
+ * Checks if a given employee ID is an admin by looking up the "Admin" sheet.
+ * @param {string} employeeId - The employee ID to check.
+ * @return {boolean} True if the employee is an admin, false otherwise.
+ */
+function checkAdmin(employeeId) {
+  try {
+    const { sheet, headers } = getSheetAndHeaders(CONFIG.admin.sheetName);
+    const idColIndex = headers[CONFIG.admin.columns.id];
+    if (idColIndex === undefined) {
+      Logger.log(`Admin ID column "${CONFIG.admin.columns.id}" not found in sheet "${CONFIG.admin.sheetName}".`);
+      return false;
+    }
+    // Get all Admin IDs, starting from the second row
+    const adminIds = sheet.getRange(2, idColIndex + 1, sheet.getLastRow() - 1, 1).getValues().flat().map(String);
+    return adminIds.includes(String(employeeId));
+  } catch (e) {
+    Logger.log(`Error in checkAdmin: ${e.message}. Ensure 'Admin' sheet and 'Admin ID' column exist.`);
+    return false;
+  }
+}
+
+
+function jsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: data }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonError(message) {
+  return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: message }))
+    .setMimeType(ContentService.MimeType.JSON);
+}

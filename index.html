@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FixFlow - ระบบแจ้งซ่อม</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4f46e5"/>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="เว็บแอปพลิเคชันสำหรับแจ้งซ่อมบำรุงภายในองค์กร">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+        }
+        .modal-bg {
+            background-color: rgba(0,0,0,0.5);
+        }
+        /* Custom scrollbar for better look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .image-zoom-overlay {
+            cursor: zoom-out;
+        }
+        .image-zoom-content {
+            cursor: default;
+        }
+
+        /* Custom SVG Loader Styles */
+        .svg-loader {
+            animation: rotate 2s linear infinite;
+        }
+        .svg-loader circle {
+            stroke-dasharray: 187;
+            stroke-dashoffset: 0;
+            transform-origin: center;
+            animation: dash 1.5s ease-in-out infinite;
+            stroke: #4f46e5; /* Indigo-600 */
+        }
+
+        @keyframes rotate {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        @keyframes dash {
+            0% {
+                stroke-dashoffset: 187;
+            }
+            50% {
+                stroke-dashoffset: 46.75;
+                transform: rotate(135deg);
+            }
+            100% {
+                stroke-dashoffset: 187;
+                transform: rotate(450deg);
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- Main Container -->
+    <div id="app" class="min-h-screen">
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-75 z-50 flex items-center justify-center hidden">
+            <!-- Custom SVG Loader -->
+            <svg class="svg-loader" width="64" height="64" viewBox="0 0 64 64">
+                <circle class="path" cx="32" cy="32" r="28" fill="none" stroke-width="4"></circle>
+            </svg>
+        </div>
+
+        <!-- Login Page -->
+        <div id="login-page" class="flex flex-col items-center justify-center min-h-screen p-4">
+            <div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-lg">
+                <div class="text-center mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-indigo-600"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                    <h1 class="text-3xl font-bold mt-2">แจ้งซ่อม ชัยนาท</h1>
+                    <p class="text-slate-500 mt-1">ระบบแจ้งซ่อมออนไลน์</p>
+                </div>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="employee-id" class="block text-sm font-medium text-slate-700 mb-1">รหัสพนักงาน 10 หลัก</label>
+                        <input type="text" id="employee-id" name="employee-id" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required maxlength="10" pattern="\d{10}">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-300">เข้าสู่ระบบ</button>
+                </form>
+                <p id="login-error" class="text-red-500 text-sm mt-2 text-center"></p>
+                <div class="text-center mt-4">
+                    <a href="#" id="show-register-modal-btn" class="text-sm text-indigo-600 hover:underline">ยังไม่เคยใช้งาน? ลงทะเบียนที่นี่</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App Page (Requester & Admin) -->
+        <div id="main-app-page" class="hidden">
+            <!-- Header -->
+            <header class="bg-white shadow-md sticky top-0 z-40">
+                <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        <h1 class="text-2xl font-bold text-indigo-600">FixFlow</h1>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="notification-btn" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold p-2 rounded-full transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 1 0 0 1-3.46 0"/></svg>
+                        </button>
+                        <button id="install-pwa-btn" class="hidden bg-indigo-100 text-indigo-700 font-bold py-2 px-3 rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                            <span>ติดตั้งแอป</span>
+                        </button>
+                        <div id="user-info" class="text-right">
+                            <p class="font-semibold" id="user-name-display"></p>
+                            <p class="text-sm text-slate-500" id="user-id-display"></p>
+                        </div>
+                        <button id="logout-button" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold p-2 rounded-full transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="container mx-auto p-4 md:p-6 relative">
+                 <!-- NEW: Pull to refresh indicator -->
+                <div id="pull-to-refresh" class="absolute top-0 left-1/2 -translate-x-1/2 -mt-12 z-30 flex items-center justify-center opacity-0">
+                    <div class="p-3 bg-white rounded-full shadow-lg">
+                        <svg id="ptr-arrow" class="h-6 w-6 text-indigo-600 transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Requester View -->
+                <div id="requester-view">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">รายการแจ้งซ่อมของคุณ</h2>
+                        <button id="open-request-modal-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                            แจ้งซ่อมใหม่
+                        </button>
+                    </div>
+                    <!-- Requester Filters -->
+                    <div class="bg-white p-4 rounded-lg shadow-sm mb-4">
+                        <h3 class="font-bold mb-3">ค้นหารายการแจ้งซ่อม</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <input type="text" id="requester-search-problem" placeholder="ค้นหาตามชื่อปัญหา..." class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            <input type="date" id="requester-search-date" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            <select id="requester-search-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                                <option value="">ทุกหมวดหมู่</option>
+                                <option value="ระบบไฟฟ้า">ระบบไฟฟ้า</option>
+                                <option value="ประปา">ประปา</option>
+                                <option value="อุปกรณ์สำนักงาน">อุปกรณ์สำนักงาน</p>
+                                <option value="IT">IT</option>
+                                <option value="อาคารสถานที่">อาคารสถานที่</option>
+                                <option value="หลอดไฟเชลฟ์สินค้า">หลอดไฟเชลฟ์สินค้า</option>
+                                <option value="ห้องน้ำ">ห้องน้ำ</option>
+                                <option value="ASRS">ASRS</option>
+                            </select>
+                            <button id="requester-filter-btn" class="bg-slate-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-800">ค้นหา</button>
+                        </div>
+                    </div>
+                    <div id="requester-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Requester items will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Admin View -->
+                <div id="admin-view" class="hidden">
+                    <h2 class="text-2xl font-bold mb-6">แดชบอร์ดจัดการ (สำหรับช่าง)</h2>
+                    
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div data-status="รอดำเนินการ" class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-400 cursor-pointer hover:bg-yellow-50 transition-colors">
+                            <p class="text-sm font-medium text-slate-500">รอดำเนินการ</p>
+                            <p id="summary-pending" class="text-3xl font-bold text-slate-800 mt-1">0</p>
+                        </div>
+                        <div data-status="กำลังดำเนินการ" class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-400 cursor-pointer hover:bg-blue-50 transition-colors">
+                            <p class="text-sm font-medium text-slate-500">กำลังดำเนินการ</p>
+                            <p id="summary-inprogress" class="text-3xl font-bold text-slate-800 mt-1">0</p>
+                        </div>
+                        <div data-status="ซ่อมเสร็จแล้ว" class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-400 cursor-pointer hover:bg-green-50 transition-colors">
+                            <p class="text-sm font-medium text-slate-500">ซ่อมเสร็จแล้ว</p>
+                            <p id="summary-completed" class="text-3xl font-bold text-slate-800 mt-1">0</p>
+                        </div>
+                        <div data-status="รออะไหล่" class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-400 cursor-pointer hover:bg-red-50 transition-colors">
+                            <p class="text-sm font-medium text-slate-500">รออะไหล่</p>
+                            <p id="summary-cancelled" class="text-3xl font-bold text-slate-800 mt-1">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Admin Filters -->
+                    <div class="bg-white p-4 rounded-lg shadow-sm mb-4">
+                        <h3 class="font-bold mb-3">ค้นหารายการแจ้งซ่อม</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <input type="text" id="admin-search-problem" placeholder="ค้นหาตามชื่อปัญหา..." class="w-full px-3 py-2 border border-slate-300 rounded-lg md:col-span-2">
+                            <input type="date" id="admin-search-date" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            <select id="admin-search-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                                <option value="">ทุกหมวดหมู่</option>
+                                <option value="ระบบไฟฟ้า">ระบบไฟฟ้า</option>
+                                <option value="ประปา">ประปา</option>
+                                <option value="อุปกรณ์สำนักงาน">อุปกรณ์สำนักงาน</p>
+                                <option value="IT">IT</option>
+                                <option value="อาคารสถานที่">อาคารสถานที่</option>
+                                <option value="หลอดไฟเชลฟ์สินค้า">หลอดไฟเชลฟ์สินค้า</option>
+                                <option value="ห้องน้ำ">ห้องน้ำ</option>
+                                <option value="ASRS">ASRS</option>
+                            </select>
+                            <button id="admin-filter-btn" class="bg-slate-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-800">ค้นหา</button>
+                        </div>
+                    </div>
+                    <div id="admin-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                       <!-- Admin items will be injected here -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- New Request Modal -->
+    <div id="request-modal" class="fixed inset-0 modal-bg z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl transform transition-all max-h-full overflow-y-auto">
+             <form id="new-request-form">
+                <div class="p-6">
+                    <div class="flex justify-between items-start">
+                         <h3 class="text-2xl font-bold mb-4">ฟอร์มแจ้งซ่อม</h3>
+                         <button type="button" class="close-modal-btn p-1 -mt-2 -mr-2 rounded-full hover:bg-slate-200">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                         </button>
+                    </div>
+                   
+                    <div class="space-y-4">
+                        <div>
+                            <label for="problem" class="block text-sm font-medium text-slate-700">ปัญหาที่พบ *</label>
+                            <input type="text" id="problem" name="problem" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" required>
+                        </div>
+                        <div>
+                            <label for="category" class="block text-sm font-medium text-slate-700">หมวดหมู่ *</label>
+                            <select id="category" name="category" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg bg-white" required>
+                                <option value="">ทุกหมวดหมู่</option>
+                                <option value="ระบบไฟฟ้า">ระบบไฟฟ้า</option>
+                                <option value="ประปา">ประปา</option>
+                                <option value="อุปกรณ์สำนักงาน">อุปกรณ์สำนักงาน</p>
+                                <option value="IT">IT</option>
+                                <option value="อาคารสถานที่">อาคารสถานที่</option>
+                                <option value="หลอดไฟเชลฟ์สินค้า">หลอดไฟเชลฟ์สินค้า</option>
+                                <option value="ห้องน้ำ">ห้องน้ำ</option>
+                                <option value="ASRS">ASRS</option>
+                            </select>
+                        </div>
+                         <div>
+                            <label for="location" class="block text-sm font-medium text-slate-700">สถานที่ *</label>
+                            <input type="text" id="location" name="location" placeholder="เช่น แผนก หรือล็อกสินค้า" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" required>
+                        </div>
+                        <div>
+                            <label for="details" class="block text-sm font-medium text-slate-700">รายละเอียดเพิ่มเติม</label>
+                            <textarea id="details" name="details" rows="3" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+                        </div>
+                        <div>
+                             <label for="image" class="block text-sm font-medium text-slate-700">รูปภาพปัญหา</label>
+                             <input type="file" id="image" name="image" accept="image/*" class="mt-1 w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                             <img id="image-preview" src="" class="mt-2 rounded-lg max-h-40 hidden zoomable-image">
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 px-6 py-4 flex justify-end">
+                     <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300">ส่งเรื่อง</button>
+                </div>
+             </form>
+        </div>
+    </div>
+    
+    <!-- Details Modal -->
+    <div id="details-modal" class="fixed inset-0 modal-bg z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-xl transform transition-all max-h-full overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start">
+                     <h3 class="text-2xl font-bold mb-1" id="details-problem"></h3>
+                     <button type="button" class="close-modal-btn p-1 -mt-2 -mr-2 rounded-full hover:bg-slate-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                     </button>
+                </div>
+                <p class="text-slate-500 mb-4" id="details-id"></p>
+                
+                <div id="cancellation-reason-display" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <h4 class="font-bold text-red-800">เหตุผลการรออะไหล่:</h4>
+                    <p class="text-red-700" id="cancellation-reason-text"></p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <div><strong class="font-semibold">สถานะ:</strong> <span id="details-status"></span></div>
+                    <div><strong class="font-semibold">หมวดหมู่:</strong> <span id="details-category"></span></div>
+                    <div><strong class="font-semibold">วันที่แจ้ง:</b> <span id="details-date"></span></div>
+                    <div><strong class="font-semibold">อัปเดตล่าสุด:</strong> <span id="details-last-updated"></span></div>
+                    <div class="md:col-span-2"><strong class="font-semibold">ผู้แจ้ง:</strong> <span id="details-requester"></span></div>
+                    <div class="md:col-span-2"><strong class="font-semibold">ช่างเทคนิค:</strong> <span id="details-updated-by"></span></div>
+                    <div class="md:col-span-2">
+                        <strong class="font-semibold">สถานที่:</strong> <p id="details-location" class="font-normal inline"></p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <strong class="font-semibold">รายละเอียด:</strong>
+                        <p class="mt-1 text-slate-600 bg-slate-50 p-3 rounded-lg" id="details-details"></p>
+                    </div>
+                </div>
+                
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-bold mb-2">รูปภาพก่อนแก้ไข</h4>
+                        <img id="details-before-image" src="https://placehold.co/600x400/e2e8f0/a0aec0?text=ไม่มีรูปภาพ" class="w-full h-auto rounded-lg shadow-sm zoomable-image cursor-zoom-in" alt="รูปภาพก่อนแก้ไข">
+                    </div>
+                    <div id="after-image-container" class="hidden">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-bold">รูปภาพหลังแก้ไข</h4>
+                            <button id="change-after-image-btn" class="hidden text-sm text-indigo-600 hover:text-indigo-800 font-semibold">เปลี่ยนรูป</button>
+                        </div>
+                        <img id="details-after-image" src="https://placehold.co/600x400/e2e8f0/a0aec0?text=รออัปโหลด" class="w-full h-auto rounded-lg shadow-sm zoomable-image cursor-zoom-in" alt="รูปภาพหลังแก้ไข">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Admin Controls -->
+            <div id="admin-controls" class="bg-slate-50 p-4 md:p-6 mt-4 hidden">
+                 <h4 class="font-bold mb-4 text-lg">จัดการสถานะ (สำหรับช่าง)</h4>
+                 <div class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                            <label for="update-status" class="block text-sm font-medium text-slate-700">เปลี่ยนสถานะเป็น</label>
+                            <select id="update-status" name="update-status" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg bg-white">
+                                 <option value="รอดำเนินการ">รอดำเนินการ</option>
+                                 <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+                                 <option value="ซ่อมเสร็จแล้ว">ซ่อมเสร็จแล้ว</option>
+                                 <option value="รออะไหล่">รออะไหล่</option>
+                            </select>
+                         </div>
+                         <div class="self-end">
+                             <button id="update-status-btn" class="w-full bg-slate-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-800 transition-colors disabled:bg-slate-400">อัปเดตสถานะ</button>
+                         </div>
+                    </div>
+                    <div id="cancellation-comment-section" class="hidden">
+                        <label for="cancellation-comment-input" class="block text-sm font-medium text-slate-700">เหตุผลการรออะไหล่</label>
+                        <textarea id="cancellation-comment-input" rows="3" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+                    </div>
+                 </div>
+
+                 <div id="upload-after-image-section" class="mt-4 hidden">
+                    <input type="file" id="after-image-upload" name="after-image-upload" accept="image/*" class="hidden">
+                    <div id="initial-upload-container" class="hidden">
+                        <label class="block text-sm font-medium text-slate-700">อัปโหลดรูปหลังแก้ไข</label>
+                        <button type="button" id="trigger-initial-upload-btn" class="mt-1 w-full flex items-center justify-center px-4 py-2 border border-dashed border-slate-400 rounded-lg text-slate-600 hover:bg-slate-100 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                            <span class="ml-2">เลือกไฟล์รูปภาพ...</span>
+                        </button>
+                    </div>
+                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Image Zoom Modal -->
+    <div id="image-zoom-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 image-zoom-overlay bg-black bg-opacity-80">
+        <img id="zoomed-image" src="" alt="Zoomed image" class="max-w-full max-h-full rounded-lg image-zoom-content">
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirm-delete-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-bg">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            <h3 class="text-xl font-bold mt-4">ยืนยันการลบ</h3>
+            <p class="text-slate-500 mt-2">คุณแน่ใจหรือไม่ว่าต้องการลบรายการแจ้งซ่อมนี้? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
+            <div class="mt-6 flex justify-center gap-4">
+                <button id="confirm-delete-no-btn" class="py-2 px-6 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200">ยกเลิก</button>
+                <button id="confirm-delete-yes-btn" class="py-2 px-6 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">ใช่, ลบเลย</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Registration Modal -->
+    <div id="register-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-bg">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl">
+            <form id="register-form">
+                <div class="p-6">
+                    <div class="flex justify-between items-start">
+                         <h3 class="text-2xl font-bold mb-4">ลงทะเบียนผู้ใช้ใหม่</h3>
+                         <button type="button" class="close-modal-btn p-1 -mt-2 -mr-2 rounded-full hover:bg-slate-200">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                         </button>
+                    </div>
+                    <p class="mb-4 text-slate-600">กรอกข้อมูลเพื่อลงทะเบียนใช้งานระบบ</p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="register-full-name" class="block text-sm font-medium text-slate-700">ชื่อ-สกุล *</label>
+                            <input type="text" id="register-full-name" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" required>
+                        </div>
+                        <div>
+                            <label for="register-employee-id" class="block text-sm font-medium text-slate-700">ตั้งรหัสพนักงาน (10 หลัก) *</label>
+                            <input type="text" id="register-employee-id" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" required maxlength="10" pattern="\d{10}">
+                        </div>
+                    </div>
+                     <p id="register-error" class="text-red-500 text-sm mt-2 text-center"></p>
+                </div>
+                <div class="bg-slate-50 px-6 py-4 flex justify-end">
+                     <button id="register-submit-btn" type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300">ลงทะเบียน</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Message Modal -->
+    <div id="message-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 modal-bg">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 text-center">
+            <div id="message-icon" class="mx-auto h-12 w-12 text-indigo-500">
+                <!-- Icon will be injected here -->
+            </div>
+            <h3 id="message-title" class="text-xl font-bold mt-4"></h3>
+            <p id="message-text" class="text-slate-500 mt-2"></p>
+            <div class="mt-6 flex justify-center">
+                <button id="message-ok-btn" class="py-2 px-6 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // =================================================================================
+        // CONFIGURATION - การตั้งค่า
+        // =================================================================================
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyIDfNvKUm-XALIKHjwBxpfLL0M1PBjdpclL0RFsEDvxDggJgQuKk-L4tc9N8aFkLFwWQ/exec"; // << ใส่ URL ของ Apps Script ของคุณ
+        const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dsmiqo5si/image/upload";
+        const CLOUDINARY_UPLOAD_PRESET = "FixFlow";
+        // ADMIN_IDS ถูกย้ายไปที่ Apps Script เพื่อรวมศูนย์การจัดการสิทธิ์
+
+        
+        const VAPID_PUBLIC_KEY = "BNxogBnP7UQvmyagjJ9R1Sxa7I6_Kp-51WWewWsUEkH1Jx_km8ayUSPuTQ5Fbe2fjoF2zBchQ1KfMLJd9aCEWhI";
+
+
+        // =================================================================================
+        // PWA & NOTIFICATION LOGIC
+        // =================================================================================
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+              .then(reg => console.log('SW registered.', reg))
+              .catch(err => console.log('SW registration failed: ', err));
+          });
+        }
+        
+        let deferredPrompt;
+        const installButton = document.getElementById('install-pwa-btn');
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          installButton.classList.remove('hidden');
+        });
+        installButton.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installButton.classList.add('hidden');
+            }
+        });
+        
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function subscribeUserToPush() {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    console.log('Notification permission not granted.');
+                    showMessageModal('แจ้งเตือน', 'คุณต้องอนุญาตการแจ้งเตือนเพื่อรับอัปเดต', 'error');
+                    return;
+                }
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+                showMessageModal('แจ้งเตือน', 'ลงทะเบียนรับการแจ้งเตือนสำเร็จ!', 'success');
+            } catch (error) {
+                console.error('Failed to subscribe the user: ', error);
+                showMessageModal('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการลงทะเบียนรับการแจ้งเตือน', 'error');
+            }
+        }
+        
+        const notificationButton = document.getElementById('notification-btn');
+        notificationButton.addEventListener('click', subscribeUserToPush);
+        
+        // =================================================================================
+        // APP LOGIC
+        // =================================================================================
+        let currentUser = null;
+        let allRequests = [];
+        let currentRequestId = null;
+        let requestIdToDelete = null;
+
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loginPage = document.getElementById('login-page');
+        const mainAppPage = document.getElementById('main-app-page');
+        const requesterView = document.getElementById('requester-view');
+        const adminView = document.getElementById('admin-view');
+        const loginForm = document.getElementById('login-form');
+        const employeeIdInput = document.getElementById('employee-id');
+        const loginError = document.getElementById('login-error');
+        const userNameDisplay = document.getElementById('user-name-display');
+        const userIdDisplay = document.getElementById('user-id-display');
+        const logoutButton = document.getElementById('logout-button');
+        const requesterList = document.getElementById('requester-list');
+        const adminList = document.getElementById('admin-list');
+        const requestModal = document.getElementById('request-modal');
+        const openRequestModalBtn = document.getElementById('open-request-modal-btn');
+        const newRequestForm = document.getElementById('new-request-form');
+        const imageInput = document.getElementById('image');
+        const imagePreview = document.getElementById('image-preview');
+        const detailsModal = document.getElementById('details-modal');
+        const adminControls = document.getElementById('admin-controls');
+        const afterImageContainer = document.getElementById('after-image-container');
+        const changeAfterImageBtn = document.getElementById('change-after-image-btn');
+        const uploadAfterImageSection = document.getElementById('upload-after-image-section');
+        const updateStatusSelect = document.getElementById('update-status');
+        const afterImageUploadInput = document.getElementById('after-image-upload');
+        const cancellationReasonDisplay = document.getElementById('cancellation-reason-display');
+        const cancellationCommentSection = document.getElementById('cancellation-comment-section');
+        const triggerInitialUploadBtn = document.getElementById('trigger-initial-upload-btn');
+        const initialUploadContainer = document.getElementById('initial-upload-container');
+        const updateStatusBtn = document.getElementById('update-status-btn');
+        const imageZoomModal = document.getElementById('image-zoom-modal');
+        const zoomedImage = document.getElementById('zoomed-image');
+        const adminFilterBtn = document.getElementById('admin-filter-btn');
+        const requesterFilterBtn = document.getElementById('requester-filter-btn');
+        const confirmDeleteModal = document.getElementById('confirm-delete-modal');
+        const confirmDeleteYesBtn = document.getElementById('confirm-delete-yes-btn');
+        const confirmDeleteNoBtn = document.getElementById('confirm-delete-no-btn');
+        const registerModal = document.getElementById('register-modal');
+        const showRegisterModalBtn = document.getElementById('show-register-modal-btn');
+        const registerForm = document.getElementById('register-form');
+        const registerError = document.getElementById('register-error');
+
+        // Custom Message Modal Elements
+        const messageModal = document.getElementById('message-modal');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+        const messageIcon = document.getElementById('message-icon');
+        const messageOkBtn = document.getElementById('message-ok-btn');
+
+        const showLoading = (show) => loadingOverlay.classList.toggle('hidden', !show);
+        const showModal = (modal, show) => modal.classList.toggle('hidden', !show);
+        const statusColors = {
+            "รอดำเนินการ": "bg-yellow-100 text-yellow-800",
+            "กำลังดำเนินการ": "bg-blue-100 text-blue-800",
+            "ซ่อมเสร็จแล้ว": "bg-green-100 text-green-800",
+            "รออะไหล่": "bg-red-100 text-red-800",
+        };
+
+        /**
+         * Displays a custom message modal.
+         * @param {string} title - The title of the message.
+         * @param {string} message - The message text.
+         * @param {'success'|'error'|'info'} type - The type of message to determine icon and color.
+         */
+        function showMessageModal(title, message, type = 'info') {
+            messageTitle.textContent = title;
+            messageText.textContent = message;
+            messageIcon.innerHTML = ''; // Clear previous icon
+
+            let iconSvg = '';
+            let iconColorClass = '';
+
+            switch (type) {
+                case 'success':
+                    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                               </svg>`;
+                    iconColorClass = 'text-green-500';
+                    break;
+                case 'error':
+                    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                               </svg>`;
+                    iconColorClass = 'text-red-500';
+                    break;
+                case 'info':
+                default:
+                    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                               </svg>`;
+                    iconColorClass = 'text-blue-500';
+                    break;
+            }
+
+            messageIcon.innerHTML = iconSvg;
+            messageIcon.className = `mx-auto h-12 w-12 ${iconColorClass}`; // Apply color class to the container
+            showModal(messageModal, true);
+        }
+
+        messageOkBtn.addEventListener('click', () => {
+            showModal(messageModal, false);
+        });
+
+        async function callGasApi(payload) {
+            try {
+                const response = await fetch(GAS_API_URL, {
+                    method: 'POST', mode: 'cors', cache: 'no-cache', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.status === 'error') throw new Error(result.message || 'เกิดข้อผิดพลาดจาก API');
+                if (!response.ok) throw new Error(`Network response was not ok, status: ${response.status}`);
+                return result.data;
+            } catch (error) {
+                console.error("API Call Error:", error);
+                throw error;
+            }
+        }
+
+        async function uploadToCloudinary(file) {
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                const response = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
+                const data = await response.json();
+                if (data.secure_url) return data.secure_url;
+                else throw new Error('Cloudinary upload failed');
+            } catch (error) {
+                console.error("Cloudinary Upload Error:", error);
+                showMessageModal('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ', 'error');
+                return null;
+            }
+        }
+        
+        function filterByStatus(status) {
+            document.getElementById('admin-search-problem').value = '';
+            document.getElementById('admin-search-date').value = '';
+            document.getElementById('admin-search-category').value = '';
+            const filtered = allRequests.filter(req => req.status === status);
+            renderRequests(filtered, adminList, currentUser); // Pass currentUser
+        }
+
+        adminView.addEventListener('click', (e) => {
+            const summaryCard = e.target.closest('[data-status]');
+            if (summaryCard) {
+                const statusToFilter = summaryCard.dataset.status;
+                filterByStatus(statusToFilter);
+            }
+        });
+
+
+        function updateSummaryCards(requests) {
+            const counts = { pending: 0, inprogress: 0, completed: 0, cancelled: 0 };
+            requests.forEach(req => {
+                if (req.status === 'รอดำเนินการ') counts.pending++;
+                else if (req.status === 'กำลังดำเนินการ') counts.inprogress++;
+                else if (req.status === 'ซ่อมเสร็จแล้ว') counts.completed++;
+                else if (req.status === 'รออะไหล่') counts.cancelled++;
+            });
+            document.getElementById('summary-pending').textContent = counts.pending;
+            document.getElementById('summary-inprogress').textContent = counts.inprogress;
+            document.getElementById('summary-completed').textContent = counts.completed;
+            document.getElementById('summary-cancelled').textContent = counts.cancelled;
+        }
+
+       /**
+         * Creates an HTML string for a request card.
+         * @param {object} request - The request object.
+         * @param {object} userSession - The current user's session object (e.g., { id: '...', isAdmin: true/false }).
+         * @returns {string} The HTML string for the request card.
+         */
+        function createRequestCard(request, userSession) {
+            const colorClass = statusColors[request.status] || "bg-slate-100 text-slate-800";
+            // Determine if the delete action should be visible
+            const canDelete = userSession.isAdmin || (userSession.id && String(request.requesterId) === String(userSession.id));
+
+            return `
+                 <div class="request-card relative bg-white p-5 rounded-xl shadow-md hover:shadow-lg transition-shadow cursor-pointer border-l-4 ${colorClass.replace('bg-', 'border-').replace('-100', '-500')}" data-id="${request.id}">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-xl text-slate-800 truncate pr-2">${request.problem}</h3>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="text-sm font-semibold px-3 py-1 rounded-full ${colorClass}">${request.status}</span>
+                            ${canDelete ? `
+                            <button class="delete-btn p-1 rounded-full bg-white text-red-500 hover:bg-red-100 transition-colors z-10" data-id="${request.id}" title="ลบรายการ">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="text-sm text-slate-600 space-y-1">
+                        <p class="flex items-center gap-2"><i data-lucide="tool" class="w-4 h-4 text-slate-500"></i><span class="font-medium">หมวดหมู่:</span> ${request.category}</p>
+                        <p class="flex items-center gap-2"><i data-lucide="map-pin" class="w-4 h-4 text-slate-500"></i><span class="font-medium">สถานที่:</span> ${request.location}</p>
+                        <p class="flex items-center gap-2"><i data-lucide="user" class="w-4 h-4 text-slate-500"></i><span class="font-medium">ผู้แจ้ง:</span> ${request.requesterName}</p>
+                    </div>
+                    <div class="border-t border-slate-200 mt-4 pt-3 text-xs text-slate-500 flex justify-between">
+                        <span>แจ้ง: ${new Date(request.date).toLocaleDateString('th-TH')}</span>
+                        <span>อัปเดต: ${new Date(request.lastUpdated).toLocaleDateString('th-TH')}</span>
+                    </div>
+                </div>`;
+        }
+
+        /**
+         * Renders a list of requests into a specified container.
+         * @param {Array<object>} requests - An array of request objects.
+         * @param {HTMLElement} container - The HTML element to render requests into.
+         * @param {object} userSession - The current user's session object.
+         */
+        function renderRequests(requests, container, userSession) {
+            container.innerHTML = '';
+            if (requests && requests.length > 0) {
+                requests.forEach(req => container.innerHTML += createRequestCard(req, userSession));
+                lucide.createIcons(); // Re-render Lucide icons after injecting new HTML
+            } else {
+                container.innerHTML = '<p class="text-slate-500 col-span-full text-center py-8">ไม่พบรายการแจ้งซ่อม</p>';
+            }
+        }
+        
+        function populateDetailsModal(request) {
+            currentRequestId = request.id;
+            document.getElementById('details-problem').textContent = request.problem;
+            document.getElementById('details-id').textContent = `ID: ${request.id}`;
+            const statusSpan = document.getElementById('details-status');
+            statusSpan.textContent = request.status;
+            statusSpan.className = `font-semibold px-2 py-1 rounded-full text-sm ${statusColors[request.status]}`;
+            document.getElementById('details-date').textContent = new Date(request.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric'});
+            document.getElementById('details-last-updated').textContent = new Date(request.lastUpdated).toLocaleString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour:'2-digit', minute:'2-digit' });
+            document.getElementById('details-updated-by').textContent = request.updatedBy || '-';
+            document.getElementById('details-category').textContent = request.category;
+            document.getElementById('details-location').textContent = request.location;
+            document.getElementById('details-requester').textContent = `${request.requesterName} (${request.requesterId})`;
+            document.getElementById('details-details').textContent = request.details || '-';
+
+            cancellationReasonDisplay.classList.toggle('hidden', !(request.status === 'รออะไหล่' && request.adminComment));
+            if (request.status === 'รออะไหล่' && request.adminComment) {
+                 document.getElementById('cancellation-reason-text').textContent = request.adminComment;
+            }
+
+            const beforeImage = document.getElementById('details-before-image');
+            beforeImage.src = request.beforeImageUrl || 'https://placehold.co/600x400/e2e8f0/a0aec0?text=ไม่มีรูปภาพ';
+            beforeImage.onerror = () => { beforeImage.src = 'https://placehold.co/600x400/e2e8f0/a0aec0?text=Error'; };
+
+            const afterImage = document.getElementById('details-after-image');
+            afterImageContainer.classList.toggle('hidden', !request.afterImageUrl);
+            if (request.afterImageUrl) {
+                 afterImage.src = request.afterImageUrl;
+                 afterImage.onerror = () => { afterImage.src = 'https://placehold.co/600x400/e2e8f0/a0aec0?text=Error'; };
+            }
+            
+            if (currentUser.isAdmin) {
+                adminControls.classList.remove('hidden');
+                updateStatusSelect.value = request.status;
+                cancellationCommentSection.classList.toggle('hidden', request.status !== 'รออะไหล่');
+                document.getElementById('cancellation-comment-input').value = request.adminComment || '';
+                const isCompleted = request.status === 'ซ่อมเสร็จแล้ว';
+                uploadAfterImageSection.classList.toggle('hidden', !isCompleted);
+                if (isCompleted) {
+                    changeAfterImageBtn.classList.toggle('hidden', !request.afterImageUrl);
+                    initialUploadContainer.classList.toggle('hidden', !!request.afterImageUrl);
+                }
+            } else {
+                adminControls.classList.add('hidden');
+            }
+            showModal(detailsModal, true);
+        }
+
+        /**
+         * Fetches all repair requests from the server and updates the UI.
+         * @param {boolean} showIndicator - Whether to show the global loading overlay. Defaults to true.
+         */
+        async function loadDashboardData(showIndicator = true) {
+            if (showIndicator) showLoading(true);
+            try {
+                const data = await callGasApi({ action: 'getRequests' });
+                if (data) {
+                    allRequests = data.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
+                    if (currentUser.isAdmin) {
+                        updateSummaryCards(allRequests);
+                        renderRequests(allRequests, adminList, currentUser); // Pass currentUser
+                    } else {
+                        const userRequests = allRequests.filter(r => String(r.requesterId) === String(currentUser.id));
+                        renderRequests(userRequests, requesterList, currentUser); // Pass currentUser
+                    }
+                }
+            } catch(error) {
+                showMessageModal('ข้อผิดพลาด', `เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}`, 'error');
+            } finally {
+                 if (showIndicator) showLoading(false);
+            }
+        }
+        
+        async function initializeUserSession(user) {
+            currentUser = user;
+            userNameDisplay.textContent = currentUser.name;
+            userIdDisplay.textContent = `ID: ${currentUser.id}`;
+            loginPage.classList.add('hidden');
+            mainAppPage.classList.remove('hidden');
+            // ใช้ currentUser.isAdmin ที่ได้จาก Backend
+            adminView.classList.toggle('hidden', !currentUser.isAdmin);
+            requesterView.classList.toggle('hidden', currentUser.isAdmin);
+            
+            if (currentUser.isAdmin) {
+                notificationButton.classList.remove('hidden');
+            }
+            
+            await loadDashboardData();
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = employeeIdInput.value;
+            loginError.textContent = '';
+            if (!id || id.length !== 10) {
+                loginError.textContent = 'กรุณากรอกรหัสพนักงาน 10 หลักให้ถูกต้อง';
+                return;
+            }
+            showLoading(true);
+            try {
+                const userData = await callGasApi({ action: 'login', employeeId: id });
+                if (userData) {
+                    // currentUser ตอนนี้จะได้รับ isAdmin จาก Backend โดยตรง
+                    const user = { id: userData.id, name: userData.name, isAdmin: userData.isAdmin }; 
+                    localStorage.setItem('currentUser', JSON.stringify(user));
+                    await initializeUserSession(user);
+                } else {
+                    loginError.textContent = 'ไม่พบรหัสพนักงานนี้ในระบบ';
+                }
+            } catch (error) {
+                loginError.textContent = error.message;
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        logoutButton.addEventListener('click', () => {
+            localStorage.removeItem('currentUser');
+            window.location.reload();
+        });
+
+        openRequestModalBtn.addEventListener('click', () => {
+            newRequestForm.reset(); imagePreview.classList.add('hidden'); showModal(requestModal, true);
+        });
+
+        document.querySelectorAll('.close-modal-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const modal = e.target.closest('.modal-bg, .fixed');
+                if (modal) showModal(modal, false);
+            });
+        });
+        
+        /**
+         * Handles the submission of the new repair request form.
+         */
+        newRequestForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = e.submitter;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'กำลังส่ง...';
+            showLoading(true);
+
+            try {
+                const formData = new FormData(newRequestForm);
+                let imageUrl = '';
+                const imageFile = formData.get('image');
+
+                if (imageFile && imageFile.size > 0) {
+                    const uploadedUrl = await uploadToCloudinary(imageFile);
+                    if (!uploadedUrl) {
+                        throw new Error('ไม่สามารถอัปโหลดรูปภาพได้');
+                    }
+                    imageUrl = uploadedUrl;
+                }
+
+                const requestData = {
+                    problem: formData.get('problem'),
+                    category: formData.get('category'),
+                    location: formData.get('location'),
+                    details: formData.get('details'),
+                    beforeImageUrl: imageUrl,
+                    requesterId: currentUser.id,
+                    requesterName: currentUser.name
+                };
+
+                const result = await callGasApi({ action: 'createRequest', data: requestData });
+
+                if (result) {
+                    showMessageModal('สำเร็จ', 'แจ้งซ่อมสำเร็จ', 'success');
+                    showModal(requestModal, false);
+                    // Reload data without showing a separate loading indicator,
+                    // as the main one is already active.
+                    await loadDashboardData(false);
+                } else {
+                    throw new Error('ไม่สามารถสร้างใบแจ้งซ่อมได้ กรุณาลองใหม่อีกครั้ง');
+                }
+            } catch (error) {
+                console.error("Submit error", error);
+                showMessageModal('ข้อผิดพลาด', `เกิดข้อผิดพลาด: ${error.message}`, 'error');
+            } finally {
+                // This block ensures the UI is always reset correctly after the operation.
+                showLoading(false);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'ส่งเรื่อง';
+            }
+        });
+        
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => { imagePreview.src = event.target.result; imagePreview.classList.remove('hidden'); }
+                reader.readAsDataURL(file);
+            } else { imagePreview.classList.add('hidden'); }
+        });
+
+        document.getElementById('app').addEventListener('click', (e) => {
+             const card = e.target.closest('.request-card'); // Target the .request-card itself
+             if (card && !e.target.closest('.delete-btn')) { // Ensure click is not on delete button
+                const requestData = allRequests.find(r => r.id === card.dataset.id);
+                if (requestData) populateDetailsModal(requestData);
+             }
+             if (e.target.classList.contains('zoomable-image') && e.target.src && !e.target.src.includes('placehold.co')) {
+                zoomedImage.src = e.target.src; showModal(imageZoomModal, true);
+             }
+             if (e.target.closest('.delete-btn')) {
+                requestIdToDelete = e.target.closest('.delete-btn').dataset.id; showModal(confirmDeleteModal, true);
+            }
+        });
+        
+        imageZoomModal.addEventListener('click', () => { showModal(imageZoomModal, false); zoomedImage.src = ''; });
+
+        updateStatusBtn.addEventListener('click', async () => {
+            updateStatusBtn.disabled = true;
+            const newStatus = updateStatusSelect.value;
+            const payload = { action: 'updateStatus', id: currentRequestId, status: newStatus, updaterName: currentUser.name };
+            if (newStatus === 'รออะไหล่') {
+                const comment = document.getElementById('cancellation-comment-input').value.trim();
+                if (!comment) { showMessageModal('ข้อผิดพลาด', 'กรุณากรอกเหตุผลการรออะไหล่', 'error'); updateStatusBtn.disabled = false; return; }
+                payload.comment = comment;
+            }
+            showLoading(true);
+            try {
+                const result = await callGasApi(payload);
+                if(result) { showMessageModal('สำเร็จ', 'อัปเดตสถานะสำเร็จ', 'success'); showModal(detailsModal, false); await loadDashboardData(); }
+            } catch (error) { console.error("Update status error:", error); showMessageModal('ข้อผิดพลาด', `เกิดข้อผิดพลาดในการอัปเดตสถานะ: ${error.message}`, 'error'); } 
+            finally { showLoading(false); updateStatusBtn.disabled = false; }
+        });
+        
+        updateStatusSelect.addEventListener('change', (e) => {
+            cancellationCommentSection.classList.toggle('hidden', e.target.value !== 'รออะไหล่');
+            uploadAfterImageSection.classList.toggle('hidden', e.target.value !== 'ซ่อมเสร็จแล้ว');
+        });
+
+        changeAfterImageBtn.addEventListener('click', () => afterImageUploadInput.click());
+        triggerInitialUploadBtn.addEventListener('click', () => afterImageUploadInput.click());
+
+        afterImageUploadInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            showLoading(true);
+            try {
+                const imageUrl = await uploadToCloudinary(file);
+                if (imageUrl) {
+                    const result = await callGasApi({ action: 'addAfterImage', id: currentRequestId, imageUrl: imageUrl, updaterName: currentUser.name });
+                    if (result) {
+                        showMessageModal('สำเร็จ', 'อัปเดต รูปภาพหลังแก้ไขสำเร็จ', 'success');
+                        const requestData = allRequests.find(r => r.id === currentRequestId);
+                        if (requestData) { requestData.afterImageUrl = imageUrl; populateDetailsModal(requestData); }
+                        await loadDashboardData();
+                    }
+                }
+            } catch (error) { console.error("Upload after image error:", error); showMessageModal('ข้อผิดพลาด', `เกิดข้อผิดพลาดในการอัปโหลดรูปภาพหลังแก้ไข: ${error.message}`, 'error'); } 
+            finally { showLoading(false); }
+        });
+        
+        const handleFilter = (isRequester) => {
+            const problemInput = document.getElementById(isRequester ? 'requester-search-problem' : 'admin-search-problem');
+            const dateInput = document.getElementById(isRequester ? 'requester-search-date' : 'admin-search-date');
+            const categoryInput = document.getElementById(isRequester ? 'requester-search-category' : 'admin-search-category');
+            const problem = problemInput.value.toLowerCase(), date = dateInput.value, category = categoryInput.value;
+            const sourceData = isRequester ? allRequests.filter(r => String(r.requesterId) === String(currentUser.id)) : allRequests;
+            const filtered = sourceData.filter(req => {
+                const reqDate = req.date.split('T')[0]; 
+                return (problem ? req.problem.toLowerCase().includes(problem) : true) && (date ? reqDate === date : true) && (category ? req.category === category : true);
+            });
+            renderRequests(filtered, isRequester ? requesterList : adminList, currentUser); // Pass currentUser
+        };
+
+        adminFilterBtn.addEventListener('click', () => handleFilter(false));
+        requesterFilterBtn.addEventListener('click', () => handleFilter(true));
+        
+        confirmDeleteNoBtn.addEventListener('click', () => { showModal(confirmDeleteModal, false); requestIdToDelete = null; });
+        confirmDeleteYesBtn.addEventListener('click', async () => {
+            if (!requestIdToDelete) return;
+            showModal(confirmDeleteModal, false); showLoading(true);
+            try {
+                // ส่ง currentUserId ไปยัง Backend เพื่อตรวจสอบสิทธิ์
+                const result = await callGasApi({ action: 'deleteRequest', id: requestIdToDelete, currentUserId: currentUser.id });
+                if (result && result.success) { showMessageModal('สำเร็จ', 'ลบรายการสำเร็จ', 'success'); await loadDashboardData(); }
+            } catch (error) { showMessageModal('ข้อผิดพลาด', `เกิดข้อผิดพลาดในการลบรายการ: ${error.message}`, 'error'); } 
+            finally { requestIdToDelete = null; showLoading(false); }
+        });
+
+        showRegisterModalBtn.addEventListener('click', (e) => {
+            e.preventDefault(); registerForm.reset(); registerError.textContent = ''; showModal(registerModal, true);
+        });
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fullName = document.getElementById('register-full-name').value.trim();
+            const employeeId = document.getElementById('register-employee-id').value.trim();
+            registerError.textContent = '';
+            if (!fullName || !employeeId) { registerError.textContent = 'กรุณากรอกข้อมูลให้ครบถ้วน'; return; }
+            if (!/^\d{10}$/.test(employeeId)) { registerError.textContent = 'รหัสพนักงานต้องเป็นตัวเลข 10 หลัก'; return; }
+            const submitBtn = e.submitter;
+            submitBtn.disabled = true; showLoading(true);
+            try {
+                const result = await callGasApi({ action: 'registerUser', name: fullName, employeeId: employeeId });
+                if (result && result.success) { showMessageModal('สำเร็จ', 'ลงทะเบียนสำเร็จ! สามารถใช้รหัสนี้เข้าสู่ระบบได้ทันที', 'success'); showModal(registerModal, false); }
+            } catch (error) { registerError.textContent = error.message; } 
+            finally { showLoading(false); submitBtn.disabled = false; }
+        });
+
+        // --- NEW: Pull to refresh logic ---
+        const ptrElement = document.getElementById('pull-to-refresh');
+        const ptrArrow = document.getElementById('ptr-arrow');
+        
+        let ptrStartY = 0;
+        let isRefreshing = false;
+        const ptrThreshold = 90; // How far to pull down in pixels
+
+        document.body.addEventListener('touchstart', (e) => {
+            if (window.scrollY === 0 && !isRefreshing) {
+                ptrStartY = e.touches[0].clientY;
+                 ptrElement.style.transition = 'none';
+            } else {
+                ptrStartY = -1; // Reset if not at top
+            }
+        }, { passive: true });
+
+        document.body.addEventListener('touchmove', (e) => {
+            if (ptrStartY === -1 || isRefreshing) return;
+
+            const currentY = e.touches[0].clientY;
+            const pullDistance = currentY - ptrStartY;
+
+            if (pullDistance > 0 && window.scrollY === 0) {
+                e.preventDefault(); // Prevent browser's native pull-to-refresh
+
+                const pullAmount = Math.max(0, pullDistance);
+                ptrElement.style.opacity = Math.min(pullAmount / ptrThreshold, 1);
+                ptrElement.style.transform = `translate(-50%, ${Math.min(pullAmount, ptrThreshold*1.2) - 48}px)`;
+
+                if (pullAmount > ptrThreshold) {
+                    ptrArrow.style.transform = 'rotate(180deg)';
+                } else {
+                    ptrArrow.style.transform = 'rotate(0deg)';
+                }
+            }
+        }, { passive: false });
+
+        document.body.addEventListener('touchend', async (e) => {
+            if (ptrStartY === -1 || isRefreshing) return;
+
+            const currentY = e.changedTouches[0].clientY;
+            const pullDistance = currentY - ptrStartY;
+            
+            ptrElement.style.transition = 'all 0.3s ease';
+            ptrArrow.style.transform = 'rotate(0deg)';
+
+            if (pullDistance > ptrThreshold) {
+                isRefreshing = true;
+                ptrElement.style.transform = 'translate(-50%, 24px)'; // Move to visible "loading" position
+                ptrArrow.classList.add('animate-spin');
+
+                try {
+                    await loadDashboardData();
+                } catch (error) {
+                    console.error("Pull to refresh failed:", error);
+                } finally {
+                    // Hide after a short delay
+                    setTimeout(() => {
+                        ptrElement.style.transform = 'translate(-50%, -48px)';
+                        ptrElement.style.opacity = '0';
+                        isRefreshing = false;
+                        ptrArrow.classList.remove('animate-spin');
+                    }, 500);
+                }
+            } else {
+                // Snap back if threshold not met
+                ptrElement.style.transform = 'translate(-50%, -48px)';
+                ptrElement.style.opacity = '0';
+            }
+            
+            ptrStartY = -1; // Reset
+        });
+
+        (async () => {
+            const savedUserJSON = localStorage.getItem('currentUser');
+            if (savedUserJSON) {
+                showLoading(true);
+                const savedUser = JSON.parse(savedUserJSON);
+                await initializeUserSession(savedUser);
+                showLoading(false);
+            }
+        })();
+
+        // Initialize Lucide icons after the DOM is loaded and new content is rendered
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+        });
+
+    </script>
+</body>
+</html>
